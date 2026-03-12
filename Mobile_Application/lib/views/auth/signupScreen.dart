@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile_application/core/theme/app_theme.dart';
+import 'package:mobile_application/widgets/auth_shell.dart';
 import 'package:mobile_application/widgets/customButton.dart';
 import 'package:mobile_application/widgets/customTextField.dart';
-import 'package:mobile_application/providers/theme_provider.dart';
 import 'package:mobile_application/viewmodels/auth_viewmodel.dart';
 
 class SignUpScreen extends StatefulWidget {
+  const SignUpScreen({super.key});
+
   @override
   _SignUpScreenState createState() => _SignUpScreenState();
 }
@@ -13,18 +16,19 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  //Controllers to retrieve user inputs
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _managementPasswordController = TextEditingController();
 
-  // Email validation function
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
+  bool _managementVisible = false;
+
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return "Email is required.";
     }
-    // Basic email validation pattern
     final emailRegex = RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
     if (!emailRegex.hasMatch(value)) {
       return "Enter a valid email address.";
@@ -32,7 +36,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
-  // Password validation function
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return "Password is required.";
@@ -43,7 +46,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
-  // Confirm Password validation function
   String? _validateConfirmPassword(String? value) {
     if (value == null || value.isEmpty) {
       return "Please confirm your password.";
@@ -54,7 +56,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
-  // Management Password validation function
   String? _validateManagementPassword(String? value) {
     if (value == null || value.isEmpty) {
       return "Management password is required.";
@@ -67,35 +68,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      // Get the AuthViewModel from Provider
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
 
-      // Call the signUp method from the ViewModel
       final result = await authViewModel.signUp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
         _managementPasswordController.text.trim(),
       );
 
-      // Based on the result, show a message or navigate accordingly
       if (result.isSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Account created successfully!"),
-            duration: Duration(seconds: 2),
-          ),
-
+          const SnackBar(content: Text("Account created successfully!")),
         );
         Future.delayed(const Duration(seconds: 2), () {
           Navigator.pop(context);
         });
-        // Optionally, navigate to a different page after sign up
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${result.errorMessage}"),
-            duration: Duration(seconds: 2),
-          ),
+          SnackBar(content: Text("Error: ${result.errorMessage}")),
         );
       }
     }
@@ -103,106 +93,99 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Sign Up",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: themeProvider.isDarkMode ? Colors.white : Colors.white,
-          ),
-        ),
-        backgroundColor: themeProvider.isDarkMode ? const Color(0xFF4527A0) : Colors.deepPurple,
-        iconTheme: IconThemeData(
-          color: themeProvider.isDarkMode ? Colors.white : Colors.white,
-        ),
-        elevation: 0,
-      ),
-      backgroundColor: themeProvider.isDarkMode ? const Color(0xFF212121) : Colors.white,
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Form(
-            key: _formKey, // Assign form key
-            child: Column(
+    return AuthShell(
+      title: "Sign Up",
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            CustomTextField(
+              controller: _emailController,
+              hintText: "Email",
+              validator: _validateEmail,
+            ),
+            const SizedBox(height: 15),
+            CustomTextField(
+              controller: _passwordController,
+              hintText: "Password",
+              obscureText: !_passwordVisible,
+              validator: _validatePassword,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: AppTheme.muted,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _passwordVisible = !_passwordVisible;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 15),
+            CustomTextField(
+              controller: _confirmPasswordController,
+              hintText: "Confirm Password",
+              obscureText: !_confirmPasswordVisible,
+              validator: _validateConfirmPassword,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: AppTheme.muted,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _confirmPasswordVisible = !_confirmPasswordVisible;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+            CustomTextField(
+              controller: _managementPasswordController,
+              hintText: "Management Password",
+              obscureText: !_managementVisible,
+              validator: _validateManagementPassword,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _managementVisible ? Icons.visibility : Icons.visibility_off,
+                  color: AppTheme.muted,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _managementVisible = !_managementVisible;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 20),
-                // Email Field
-                CustomTextField(
-                  controller: _emailController,
-                  hintText: "Email",
-                  validator: _validateEmail,
-                  hintColor: themeProvider.isDarkMode ? (Colors.grey[400] ?? Colors.grey) : (Colors.grey[700] ?? Colors.grey),
-                  // Change textColor to black in dark mode for better contrast
-                  textColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFF212121),
+                const Text(
+                  "Already have an account? ",
+                  style: TextStyle(color: AppTheme.muted),
                 ),
-                const SizedBox(height: 15),
-                // Password Field
-                CustomTextField(
-                  controller: _passwordController,
-                  hintText: "Password",
-                  obscureText: true,
-                  validator: _validatePassword,
-                  hintColor: themeProvider.isDarkMode ? (Colors.grey[400] ?? Colors.grey) : (Colors.grey[700] ?? Colors.grey),
-                  textColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFF212121),
-                ),
-                const SizedBox(height: 15),
-                // Confirm Password Field
-                CustomTextField(
-                  controller: _confirmPasswordController,
-                  hintText: "Confirm Password",
-                  obscureText: true,
-                  validator: _validateConfirmPassword,
-                  hintColor: themeProvider.isDarkMode ? (Colors.grey[400] ?? Colors.grey) : (Colors.grey[700] ?? Colors.grey),
-                  textColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFF212121),
-                ),
-                const SizedBox(height: 30),
-                // Management Password Field
-                CustomTextField(
-                  controller: _managementPasswordController,
-                  hintText: "Management Password",
-                  obscureText: true,
-                  validator: _validateManagementPassword,
-                  hintColor: themeProvider.isDarkMode ? (Colors.grey[400] ?? Colors.grey) : (Colors.grey[700] ?? Colors.grey),
-                  textColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFF212121),
-                ),
-                const SizedBox(height: 30),
-                // Already have an account? Sign in option
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Already have an account? ",
-                      style: TextStyle(
-                        color: themeProvider.isDarkMode ? Colors.white : const Color(0xFF212121),
-                      ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/logIn/');
+                  },
+                  child: const Text(
+                    "Sign In",
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w800,
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/logIn/');
-                      },
-                      child: Text(
-                        "Sign In",
-                        style: TextStyle(
-                          color: themeProvider.isDarkMode ? Colors.blue[300] : Colors.blue,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                // Sign Up Button
-                CustomButton(
-                  text: "Create Account",
-                  onPressed: _signUp, // Validate form on button press and create user in Firebase
-                  backgroundColor: themeProvider.isDarkMode ? const Color(0xFF4527A0) : Color(0xFF7E57C2),
-                  textColor: Colors.white,
+                  ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 8),
+            CustomButton(
+              text: "Create Account",
+              onPressed: _signUp,
+            ),
+          ],
         ),
       ),
     );

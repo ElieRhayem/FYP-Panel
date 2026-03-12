@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_application/constants/routes.dart';
+import 'package:mobile_application/core/theme/app_theme.dart';
+import 'package:mobile_application/features/dashboard/dashboard_view_model.dart';
 import 'package:mobile_application/firebase_options.dart';
 import 'package:mobile_application/providers/theme_provider.dart';
 import 'package:mobile_application/services/firebase_auth_service.dart';
@@ -22,6 +24,9 @@ void main() async {
         ChangeNotifierProvider<AuthViewModel>(
           create: (_) => AuthViewModel(FirebaseAuthService()),
         ),
+        ChangeNotifierProvider<DashboardViewModel>(
+          create: (_) => DashboardViewModel()..startMockStream(),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -36,9 +41,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: "Manager's App",
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-      ),
+      theme: AppTheme.dark(),
       initialRoute: '/logIn/',
       routes: appRoutes,
     );

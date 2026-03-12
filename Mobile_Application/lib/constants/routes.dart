@@ -6,15 +6,15 @@ import 'package:mobile_application/views/auth/emailVerification.dart';
 import 'package:mobile_application/views/auth/managementCode_screen.dart';
 import 'package:mobile_application/views/common/loading_screen.dart';
 import 'package:mobile_application/views/common/uiScreen.dart';
+import 'package:mobile_application/views/common/logs_screen.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
-  '/loading/': (context) => LoadingScreen(),
+  '/loading/': (context) => const LoadingScreen(),
   '/logIn/': (context) => LoginScreen(),
   '/signUp/': (context) => SignUpScreen(),
   '/emailVerification/': (context) => EmailVerificationScreen(),
   '/management/': (context) => ManagementCodeScreen(),
   '/resetPass/': (context) => PasswordResetEmailScreen(),
-
-  // Main UI screen
   '/mainUi/': (context) => const MachineListScreen(),
+  '/logs/': (context) => const LogsScreen(),
 };

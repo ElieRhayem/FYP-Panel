@@ -1,6 +1,5 @@
-//customizing buttons
-
 import 'package:flutter/material.dart';
+import 'package:mobile_application/core/theme/app_theme.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -9,29 +8,35 @@ class CustomButton extends StatelessWidget {
   final Color textColor;
 
   const CustomButton({
+    super.key,
     required this.text,
     required this.onPressed,
-    this.backgroundColor = Colors.deepPurple,
-    this.textColor = Colors.white,
+    this.backgroundColor = AppTheme.primary,
+    this.textColor = AppTheme.bgDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: backgroundColor,
-        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: textColor,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: textColor,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: textColor,
+            letterSpacing: 0.3,
+          ),
         ),
       ),
     );

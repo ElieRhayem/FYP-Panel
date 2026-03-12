@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_application/core/theme/app_theme.dart';
+import 'package:mobile_application/widgets/grid_background.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({Key? key}) : super(key: key);
@@ -11,8 +13,8 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   void initState() {
     super.initState();
-    // Simulate a delay (5 seconds) before navigating to the login screen.
-    Future.delayed(const Duration(seconds: 5), () {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/mainUi/');
     });
   }
@@ -20,30 +22,47 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.deepPurple, // Purple/violet background
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Loading...',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Welcome Back Dear Manager!',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      backgroundColor: AppTheme.bgDark,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: GridBackground()),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: AppTheme.panel.withOpacity(0.96),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Initializing Panel Control...',
+                    style: TextStyle(
+                      color: AppTheme.text,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'Welcome back!',
+                    style: TextStyle(
+                      color: AppTheme.muted,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
