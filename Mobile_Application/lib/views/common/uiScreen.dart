@@ -12,14 +12,14 @@ import 'package:mobile_application/features/dashboard/dashboard_view_model.dart'
 import 'package:mobile_application/viewmodels/auth_viewmodel.dart';
 import 'package:mobile_application/widgets/grid_background.dart';
 
-class MachineListScreen extends StatefulWidget {
-  const MachineListScreen({super.key});
+class PanelDashboards extends StatefulWidget {
+  const PanelDashboards({super.key});
 
   @override
-  State<MachineListScreen> createState() => _MachineListScreenState();
+  State<PanelDashboards> createState() => _PanelDashboardsState();
 }
 
-class _MachineListScreenState extends State<MachineListScreen> {
+class _PanelDashboardsState extends State<PanelDashboards> {
   int _currentIndex = 0;
 
   Future<void> _signOut(BuildContext context) async {
@@ -126,12 +126,6 @@ class _MachineListScreenState extends State<MachineListScreen> {
       appBar: AppBar(
         title: Text(_title),
         actions: [
-          if (_currentIndex == 0)
-            IconButton(
-              onPressed: () => Navigator.pushNamed(context, '/logs/'),
-              icon: const Icon(Icons.receipt_long_rounded),
-              tooltip: "Logs",
-            ),
           IconButton(
             onPressed: _showLogoutDialog,
             icon: const Icon(Icons.logout_rounded),

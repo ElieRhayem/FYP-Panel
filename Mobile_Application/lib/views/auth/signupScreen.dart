@@ -60,7 +60,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (value == null || value.isEmpty) {
       return "Management password is required.";
     }
-    if (value != "MANAGER2025") {
+    if (value != "MANAGER2026") {
       return "Incorrect management code.";
     }
     return null;

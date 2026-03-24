@@ -6,7 +6,6 @@ import 'package:mobile_application/views/auth/emailVerification.dart';
 import 'package:mobile_application/views/auth/managementCode_screen.dart';
 import 'package:mobile_application/views/common/loading_screen.dart';
 import 'package:mobile_application/views/common/uiScreen.dart';
-import 'package:mobile_application/views/common/logs_screen.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
   '/loading/': (context) => const LoadingScreen(),
@@ -15,6 +14,5 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/emailVerification/': (context) => EmailVerificationScreen(),
   '/management/': (context) => ManagementCodeScreen(),
   '/resetPass/': (context) => PasswordResetEmailScreen(),
-  '/mainUi/': (context) => const MachineListScreen(),
-  '/logs/': (context) => const LogsScreen(),
+  '/mainUi/': (context) => const PanelDashboards(),
 };
