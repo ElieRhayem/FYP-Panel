@@ -5,7 +5,7 @@ import 'package:mobile_application/views/auth/emailToResetPass.dart';
 import 'package:mobile_application/views/auth/emailVerification.dart';
 import 'package:mobile_application/views/auth/managementCode_screen.dart';
 import 'package:mobile_application/views/common/loading_screen.dart';
-import 'package:mobile_application/views/common/uiScreen.dart';
+import 'package:mobile_application/views/common/dashboard/panel_dashboards.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
   '/loading/': (context) => const LoadingScreen(),
