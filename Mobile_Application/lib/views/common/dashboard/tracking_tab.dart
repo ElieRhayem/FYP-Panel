@@ -5,8 +5,9 @@ import 'package:mobile_application/core/widgets/mc_panel.dart';
 import 'package:mobile_application/core/widgets/mc_radar_scanner.dart';
 import 'package:mobile_application/core/widgets/mc_sensor_panel.dart';
 import 'package:mobile_application/core/widgets/mc_timeline.dart';
-import 'package:mobile_application/features/dashboard/dashboard_view_model.dart';
+import 'package:mobile_application/viewmodels/dashboard_view_model.dart';
 import 'package:mobile_application/widgets/grid_background.dart';
+import 'package:mobile_application/views/common/dashboard/dashboard_widgets.dart';
 
 class TrackingTab extends StatelessWidget {
   const TrackingTab({super.key});
@@ -15,6 +16,7 @@ class TrackingTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
     final cs = Theme.of(context).colorScheme;
+    final border = Theme.of(context).dividerTheme.color ?? Colors.white24;
 
     final sensors = [
       const SensorStatus(
@@ -35,11 +37,11 @@ class TrackingTab extends StatelessWidget {
         strength: 3,
         hint: "Actuator feedback",
       ),
-      const SensorStatus(
+      SensorStatus(
         name: "Wind sensor",
-        online: false,
-        strength: 0,
-        hint: "Safety constraint",
+        online: vm.windSensorOnline,
+        strength: vm.windSensorOnline ? 3 : 0,
+        hint: vm.windSensorOnline ? "Safety constraint OK" : "Safety constraint",
       ),
     ];
 
@@ -53,18 +55,18 @@ class TrackingTab extends StatelessWidget {
       McEvent(
         time: DateTime.now().subtract(const Duration(seconds: 8)),
         title: "Orientation updated",
-        details: "Azimuth adjusted by +2°",
+        details: "Azimuth ${vm.azimuth.toStringAsFixed(0)}° / Tilt ${vm.tilt.toStringAsFixed(0)}°",
         dot: const Color(0xFFFFC857),
       ),
       McEvent(
         time: DateTime.now().subtract(const Duration(seconds: 16)),
-        title: "Wind sensor offline",
-        details: "Fallback safety mode enabled",
-        dot: Colors.redAccent,
+        title: vm.windSensorOnline ? "Wind sensor online" : "Wind sensor offline",
+        details: vm.windSensorOnline
+            ? "Tracker operating normally"
+            : "Fallback safety mode enabled",
+        dot: vm.windSensorOnline ? Colors.greenAccent : Colors.redAccent,
       ),
     ];
-
-    final health = (100 - vm.estimatedLoss * 3).clamp(0, 100).toDouble();
 
     return Stack(
       children: [
@@ -98,7 +100,7 @@ class TrackingTab extends StatelessWidget {
                       Expanded(
                         child: McMetric(
                           label: "Azimuth",
-                          value: "148",
+                          value: vm.azimuth.toStringAsFixed(0),
                           unit: "°",
                           icon: Icons.navigation_rounded,
                           accent: cs.primary,
@@ -109,7 +111,7 @@ class TrackingTab extends StatelessWidget {
                       Expanded(
                         child: McMetric(
                           label: "Tilt",
-                          value: "32",
+                          value: vm.tilt.toStringAsFixed(0),
                           unit: "°",
                           icon: Icons.change_circle_outlined,
                           accent: const Color(0xFF7C4DFF),
@@ -128,7 +130,7 @@ class TrackingTab extends StatelessWidget {
                 children: [
                   Expanded(
                     child: McRadarScanner(
-                      healthScore: health,
+                      healthScore: vm.trackerHealth,
                       title: "TRACKER HEALTH",
                       accent: cs.primary,
                     ),
@@ -148,9 +150,60 @@ class TrackingTab extends StatelessWidget {
               title: "EVENT STREAM",
               child: McTimeline(events: events),
             ),
+            const SizedBox(height: 14),
+            McPanel(
+              title: "TRACKING CONTROL",
+              child: Column(
+                children: [
+                  DashboardToggleRow(
+                    title: "Tracking Manual Mode",
+                    subtitle: "Override automatic sun tracking",
+                    value: vm.trackingManualMode,
+                    border: border,
+                    onChanged: vm.setTrackingManualMode,
+                  ),
+                  const SizedBox(height: 12),
+                  DashboardToggleRow(
+                    title: "Safety Lock",
+                    subtitle: "Disable tracker movement when enabled",
+                    value: vm.safetyLock,
+                    border: border,
+                    onChanged: vm.setSafetyLock,
+                  ),
+                  const SizedBox(height: 12),
+                  CommandButtonCard(
+                    title: "Stow Panel",
+                    subtitle: "Move panel to safe position (UI-only now)",
+                    icon: Icons.shield_rounded,
+                    border: border,
+                    onTap: () {
+                      vm.stowPanel();
+                      _snack(context, "Stow command simulated");
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CommandButtonCard(
+                    title: "Return to Auto Tracking",
+                    subtitle: "Resume predictive tracking logic",
+                    icon: Icons.explore_rounded,
+                    border: border,
+                    onTap: () {
+                      vm.returnToAutoTracking();
+                      _snack(context, "Auto tracking restored");
+                    },
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ],
+    );
+  }
+
+  void _snack(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
     );
   }
 }

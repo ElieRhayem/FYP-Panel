@@ -5,8 +5,9 @@ import 'package:mobile_application/core/widgets/mc_panel.dart';
 import 'package:mobile_application/core/widgets/mc_radar_scanner.dart';
 import 'package:mobile_application/core/widgets/mc_sensor_panel.dart';
 import 'package:mobile_application/core/widgets/mc_timeline.dart';
-import 'package:mobile_application/features/dashboard/dashboard_view_model.dart';
+import 'package:mobile_application/viewmodels/dashboard_view_model.dart';
 import 'package:mobile_application/widgets/grid_background.dart';
+import 'package:mobile_application/views/common/dashboard/dashboard_widgets.dart';
 
 class CleaningTab extends StatelessWidget {
   const CleaningTab({super.key});
@@ -15,8 +16,7 @@ class CleaningTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
     final cs = Theme.of(context).colorScheme;
-
-    final cleaningRecommended = vm.estimatedLoss >= 5;
+    final border = Theme.of(context).dividerTheme.color ?? Colors.white24;
 
     final sensors = [
       const SensorStatus(
@@ -31,11 +31,11 @@ class CleaningTab extends StatelessWidget {
         strength: 3,
         hint: "Tank status OK",
       ),
-      const SensorStatus(
+      SensorStatus(
         name: "Nozzle valve",
-        online: true,
-        strength: 3,
-        hint: "Actuator ready",
+        online: !vm.safetyLock,
+        strength: vm.safetyLock ? 0 : 3,
+        hint: vm.safetyLock ? "Blocked by safety lock" : "Actuator ready",
       ),
       const SensorStatus(
         name: "Temp safety",
@@ -49,8 +49,8 @@ class CleaningTab extends StatelessWidget {
       McEvent(
         time: DateTime.now(),
         title: "Cleaning logic evaluated",
-        details: cleaningRecommended ? "Recommended (loss > 5%)" : "Not required",
-        dot: cleaningRecommended ? Colors.redAccent : Colors.greenAccent,
+        details: vm.cleaningRecommended ? "Recommended (loss > 5%)" : "Not required",
+        dot: vm.cleaningRecommended ? Colors.redAccent : Colors.greenAccent,
       ),
       McEvent(
         time: DateTime.now().subtract(const Duration(seconds: 10)),
@@ -60,13 +60,11 @@ class CleaningTab extends StatelessWidget {
       ),
       McEvent(
         time: DateTime.now().subtract(const Duration(seconds: 18)),
-        title: "Pump ready",
-        details: "Standby state",
-        dot: Colors.cyanAccent,
+        title: vm.cleaningInProgress ? "Cleaning running" : "Pump ready",
+        details: vm.cleaningInProgress ? "Cleaning cycle active" : "Standby state",
+        dot: vm.cleaningInProgress ? Colors.cyanAccent : Colors.greenAccent,
       ),
     ];
-
-    final cleaningHealth = (cleaningRecommended ? 78 : 92).toDouble();
 
     return Stack(
       children: [
@@ -77,9 +75,9 @@ class CleaningTab extends StatelessWidget {
             McPanel(
               title: "CLEANING DECISION",
               trailing: Text(
-                cleaningRecommended ? "RECOMMENDED" : "HOLD",
+                vm.cleaningRecommended ? "RECOMMENDED" : "HOLD",
                 style: TextStyle(
-                  color: cleaningRecommended ? Colors.redAccent : Colors.greenAccent,
+                  color: vm.cleaningRecommended ? Colors.redAccent : Colors.greenAccent,
                   letterSpacing: 1.0,
                   fontWeight: FontWeight.w900,
                 ),
@@ -105,10 +103,10 @@ class CleaningTab extends StatelessWidget {
                           value: vm.estimatedLoss.toStringAsFixed(1),
                           unit: "%",
                           icon: Icons.warning_rounded,
-                          accent: cleaningRecommended
+                          accent: vm.cleaningRecommended
                               ? Colors.redAccent
                               : Colors.greenAccent,
-                          hint: cleaningRecommended
+                          hint: vm.cleaningRecommended
                               ? "Above threshold"
                               : "Below threshold",
                         ),
@@ -118,7 +116,7 @@ class CleaningTab extends StatelessWidget {
                   const SizedBox(height: 10),
                   McMetric(
                     label: "Action",
-                    value: cleaningRecommended ? "Start cleaning cycle" : "Do nothing",
+                    value: vm.cleaningAction,
                     unit: "",
                     icon: Icons.cleaning_services_rounded,
                     accent: cs.primary,
@@ -134,7 +132,7 @@ class CleaningTab extends StatelessWidget {
                 children: [
                   Expanded(
                     child: McRadarScanner(
-                      healthScore: cleaningHealth,
+                      healthScore: vm.cleaningHealth,
                       title: "CLEANING HEALTH",
                       accent: Colors.cyanAccent,
                     ),
@@ -154,9 +152,52 @@ class CleaningTab extends StatelessWidget {
               title: "EVENT STREAM",
               child: McTimeline(events: events),
             ),
+            const SizedBox(height: 14),
+            McPanel(
+              title: "CLEANING CONTROL",
+              child: Column(
+                children: [
+                  DashboardToggleRow(
+                    title: "Force Cleaning Ready",
+                    subtitle: "Allow cleaning even if not recommended",
+                    value: vm.forceCleaningReady,
+                    border: border,
+                    onChanged: vm.setForceCleaningReady,
+                  ),
+                  const SizedBox(height: 12),
+                  CommandButtonCard(
+                    title: "Start Cleaning Now",
+                    subtitle: "Start cleaning cycle manually (UI-only now)",
+                    icon: Icons.play_arrow_rounded,
+                    border: border,
+                    onTap: () {
+                      vm.startCleaningNow();
+                      _snack(context, "Cleaning start simulated");
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CommandButtonCard(
+                    title: "Stop Cleaning",
+                    subtitle: "Abort current cleaning cycle",
+                    icon: Icons.stop_circle_rounded,
+                    border: border,
+                    onTap: () {
+                      vm.stopCleaning();
+                      _snack(context, "Cleaning stop simulated");
+                    },
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ],
+    );
+  }
+
+  void _snack(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
     );
   }
 }

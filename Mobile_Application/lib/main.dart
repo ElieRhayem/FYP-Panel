@@ -2,7 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_application/constants/routes.dart';
 import 'package:mobile_application/core/theme/app_theme.dart';
-import 'package:mobile_application/features/dashboard/dashboard_view_model.dart';
+import 'package:mobile_application/viewmodels/dashboard_view_model.dart';
 import 'package:mobile_application/firebase_options.dart';
 import 'package:mobile_application/providers/theme_provider.dart';
 import 'package:mobile_application/services/firebase_auth_service.dart';

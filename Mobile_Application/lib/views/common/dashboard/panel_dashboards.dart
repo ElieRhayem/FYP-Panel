@@ -5,7 +5,7 @@ import 'package:mobile_application/viewmodels/auth_viewmodel.dart';
 import 'package:mobile_application/views/common/dashboard/overview_tab.dart';
 import 'package:mobile_application/views/common/dashboard/tracking_tab.dart';
 import 'package:mobile_application/views/common/dashboard/cleaning_tab.dart';
-import 'package:mobile_application/views/common/dashboard/overrides_tab.dart';
+import 'package:mobile_application/views/common/dashboard/statistics_tab.dart';
 
 class PanelDashboards extends StatefulWidget {
   const PanelDashboards({super.key});
@@ -109,13 +109,13 @@ class _PanelDashboardsState extends State<PanelDashboards> {
   String get _title {
     switch (_currentIndex) {
       case 0:
-        return "Mission Control";
+        return "Overview";
       case 1:
         return "Tracking";
       case 2:
         return "Cleaning";
       case 3:
-        return "Overrides";
+        return "Statistics";
       default:
         return "Mission Control";
     }
@@ -127,7 +127,7 @@ class _PanelDashboardsState extends State<PanelDashboards> {
       const OverviewTab(),
       const TrackingTab(),
       const CleaningTab(),
-      const OverridesTab(),
+      const StatisticsTab(),
     ];
 
     return Scaffold(
@@ -182,9 +182,9 @@ class _PanelDashboardsState extends State<PanelDashboards> {
             label: 'Cleaning',
           ),
           NavigationDestination(
-            icon: Icon(Icons.tune_outlined),
-            selectedIcon: Icon(Icons.tune),
-            label: 'Overrides',
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Statistics',
           ),
         ],
       ),

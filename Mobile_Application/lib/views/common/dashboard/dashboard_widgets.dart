@@ -412,3 +412,39 @@ class CommandButtonCard extends StatelessWidget {
     );
   }
 }
+
+class DashboardToggleRow extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool value;
+  final Color border;
+  final ValueChanged<bool> onChanged;
+
+  const DashboardToggleRow({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.border,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(subtitle),
+      ),
+    );
+  }
+}

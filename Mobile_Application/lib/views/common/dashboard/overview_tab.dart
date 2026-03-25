@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_application/core/widgets/mc_metric.dart';
 import 'package:mobile_application/core/widgets/mc_panel.dart';
+import 'package:mobile_application/core/widgets/mc_radar_scanner.dart';
 import 'package:mobile_application/core/widgets/status_light.dart';
-import 'package:mobile_application/features/dashboard/dashboard_view_model.dart';
+import 'package:mobile_application/viewmodels/dashboard_view_model.dart';
 import 'package:mobile_application/widgets/grid_background.dart';
 import 'package:mobile_application/views/common/dashboard/dashboard_widgets.dart';
 import 'package:mobile_application/views/common/dashboard/dashboard_helpers.dart';
@@ -51,6 +52,15 @@ class OverviewTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
+            McPanel(
+              title: "OVERALL HEALTH",
+              child: McRadarScanner(
+                healthScore: vm.overallHealth,
+                title: "SYSTEM HEALTH",
+                accent: cs.primary,
+              ),
+            ),
+            const SizedBox(height: 14),
             LayoutBuilder(
               builder: (context, c) {
                 final twoCols = c.maxWidth > 720;
@@ -93,10 +103,10 @@ class OverviewTab extends StatelessWidget {
                           const SizedBox(height: 10),
                           ThresholdLine(
                             title: "Cleaning rule",
-                            text: vm.estimatedLoss >= 5
+                            text: vm.cleaningRecommended
                                 ? "TRIGGER: loss > 5%  → cleaning justified"
                                 : "HOLD: loss ≤ 5%  → no cleaning",
-                            color: vm.estimatedLoss >= 5
+                            color: vm.cleaningRecommended
                                 ? Colors.red
                                 : Colors.green,
                           ),
@@ -109,23 +119,32 @@ class OverviewTab extends StatelessWidget {
                 final right = Column(
                   children: [
                     McPanel(
-                      title: "TRACKING",
+                      title: "TRACKING SNAPSHOT",
                       child: Column(
-                        children: const [
+                        children: [
                           McMetric(
                             label: "Mode",
-                            value: "AUTO",
+                            value: vm.trackerMode,
                             unit: "",
                             icon: Icons.explore_rounded,
-                            accent: Color(0xFFFFC857),
+                            accent: const Color(0xFFFFC857),
                             hint: "Predictive logic later with weather",
                           ),
-                          SizedBox(height: 10),
-                          KeyValueRow(k: "Azimuth", v: "148° (mock)"),
-                          SizedBox(height: 6),
-                          KeyValueRow(k: "Tilt", v: "32° (mock)"),
-                          SizedBox(height: 6),
-                          KeyValueRow(k: "Weather", v: "Clear (mock)"),
+                          const SizedBox(height: 10),
+                          KeyValueRow(
+                            k: "Azimuth",
+                            v: "${vm.azimuth.toStringAsFixed(0)}°",
+                          ),
+                          const SizedBox(height: 6),
+                          KeyValueRow(
+                            k: "Tilt",
+                            v: "${vm.tilt.toStringAsFixed(0)}°",
+                          ),
+                          const SizedBox(height: 6),
+                          KeyValueRow(
+                            k: "Weather",
+                            v: vm.weatherStatus,
+                          ),
                         ],
                       ),
                     ),
@@ -141,18 +160,22 @@ class OverviewTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           EventRow(
-                            dot: vm.estimatedLoss >= 5
+                            dot: vm.cleaningRecommended
                                 ? Colors.red
                                 : Colors.green,
-                            title: vm.estimatedLoss >= 5
+                            title: vm.cleaningRecommended
                                 ? "Cleaning recommended"
                                 : "System stable",
                             time: "2s",
                           ),
                           const SizedBox(height: 10),
-                          const EventRow(
-                            dot: Color(0xFFFFC857),
-                            title: "Tracker running",
+                          EventRow(
+                            dot: vm.windSensorOnline
+                                ? const Color(0xFFFFC857)
+                                : Colors.redAccent,
+                            title: vm.windSensorOnline
+                                ? "Tracker running"
+                                : "Wind sensor issue",
                             time: "2s",
                           ),
                         ],
@@ -181,75 +204,9 @@ class OverviewTab extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 16),
-            McPanel(
-              title: "CONTROL",
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ControlButton(
-                      icon: Icons.tune_rounded,
-                      label: "Open Control Center",
-                      onTap: () => _openControlCenter(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ],
     );
-  }
-
-  void _openControlCenter(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: McPanel(
-            title: "CONTROL CENTER",
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CommandTile(
-                  icon: Icons.cleaning_services_rounded,
-                  title: "Force cleaning",
-                  subtitle: "Start cleaning immediately",
-                  onTap: () => _snack(context, "Later: write command to Firebase"),
-                ),
-                CommandTile(
-                  icon: Icons.stop_circle_rounded,
-                  title: "Stop cleaning",
-                  subtitle: "Abort cleaning cycle",
-                  onTap: () => _snack(context, "Later: write command to Firebase"),
-                ),
-                CommandTile(
-                  icon: Icons.explore_rounded,
-                  title: "Tracking Auto / Manual",
-                  subtitle: "Switch tracking mode",
-                  onTap: () => _snack(context, "Later: write command to Firebase"),
-                ),
-                CommandTile(
-                  icon: Icons.restart_alt_rounded,
-                  title: "Reset system",
-                  subtitle: "Restart controller state",
-                  onTap: () => _snack(context, "Later: write command to Firebase"),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _snack(BuildContext context, String msg) {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
