@@ -5,7 +5,6 @@ import 'package:mobile_application/viewmodels/auth_viewmodel.dart';
 import 'package:mobile_application/views/common/dashboard/overview_tab.dart';
 import 'package:mobile_application/views/common/dashboard/tracking_tab.dart';
 import 'package:mobile_application/views/common/dashboard/cleaning_tab.dart';
-import 'package:mobile_application/views/common/dashboard/statistics_tab.dart';
 import 'package:mobile_application/views/common/dashboard/sensors_status_tab.dart';
 
 class PanelDashboards extends StatefulWidget {
@@ -117,8 +116,6 @@ class _PanelDashboardsState extends State<PanelDashboards> {
         return "Cleaning";
       case 3:
         return "Sensors";
-      case 4:
-        return "Statistics";
       default:
         return "Panel Control";
     }
@@ -131,7 +128,6 @@ class _PanelDashboardsState extends State<PanelDashboards> {
       const TrackingTab(),
       const CleaningTab(),
       const SensorsStatusTab(),
-      const StatisticsTab(),
     ];
 
     return Scaffold(
@@ -189,11 +185,6 @@ class _PanelDashboardsState extends State<PanelDashboards> {
             icon: Icon(Icons.sensors_outlined),
             selectedIcon: Icon(Icons.sensors),
             label: 'Sensors',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Statistics',
           ),
         ],
       ),
