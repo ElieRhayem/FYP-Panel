@@ -21,6 +21,32 @@ class DashboardSensorItem {
   });
 }
 
+class TrackingHistoryEntry {
+  final String timeLabel;
+  final String mode;
+  final double azimuth;
+  final double tilt;
+  final double avgIrradiance;
+  final String brightestDirection;
+  final double topLeft;
+  final double topRight;
+  final double bottomLeft;
+  final double bottomRight;
+
+  const TrackingHistoryEntry({
+    required this.timeLabel,
+    required this.mode,
+    required this.azimuth,
+    required this.tilt,
+    required this.avgIrradiance,
+    required this.brightestDirection,
+    required this.topLeft,
+    required this.topRight,
+    required this.bottomLeft,
+    required this.bottomRight,
+  });
+}
+
 class DashboardViewModel extends ChangeNotifier {
   double powerW = 842.0;
   double estimatedLoss = 4.8;
@@ -54,6 +80,69 @@ class DashboardViewModel extends ChangeNotifier {
   int manualOverridesCount = 2;
   String lastCleaningLabel = "Yesterday";
 
+  final List<TrackingHistoryEntry> trackingHistory = [
+    const TrackingHistoryEntry(
+      timeLabel: "Now",
+      mode: "AUTO",
+      azimuth: 148,
+      tilt: 32,
+      avgIrradiance: 71.5,
+      brightestDirection: "RIGHT",
+      topLeft: 72,
+      topRight: 81,
+      bottomLeft: 64,
+      bottomRight: 69,
+    ),
+    const TrackingHistoryEntry(
+      timeLabel: "10 sec ago",
+      mode: "AUTO",
+      azimuth: 146,
+      tilt: 31,
+      avgIrradiance: 68.5,
+      brightestDirection: "TOP",
+      topLeft: 70,
+      topRight: 75,
+      bottomLeft: 61,
+      bottomRight: 68,
+    ),
+    const TrackingHistoryEntry(
+      timeLabel: "20 sec ago",
+      mode: "SAFE",
+      azimuth: 144,
+      tilt: 30,
+      avgIrradiance: 63.0,
+      brightestDirection: "RIGHT",
+      topLeft: 60,
+      topRight: 71,
+      bottomLeft: 58,
+      bottomRight: 63,
+    ),
+    const TrackingHistoryEntry(
+      timeLabel: "30 sec ago",
+      mode: "AUTO",
+      azimuth: 143,
+      tilt: 29,
+      avgIrradiance: 61.8,
+      brightestDirection: "TOP",
+      topLeft: 64,
+      topRight: 66,
+      bottomLeft: 57,
+      bottomRight: 60,
+    ),
+    const TrackingHistoryEntry(
+      timeLabel: "40 sec ago",
+      mode: "MANUAL",
+      azimuth: 150,
+      tilt: 34,
+      avgIrradiance: 73.2,
+      brightestDirection: "LEFT",
+      topLeft: 78,
+      topRight: 71,
+      bottomLeft: 74,
+      bottomRight: 70,
+    ),
+  ];
+
   // Added only for the Sensors Status tab mock UI
   bool sunSensorOnline = true;
   bool gyroOnline = true;
@@ -85,6 +174,46 @@ class DashboardViewModel extends ChangeNotifier {
     if (!trackingManualMode) return "Enable manual mode to adjust panel corners";
     if (safetyLock) return "Safety lock enabled: corner movement blocked";
     return "Tap a corner to raise or lower its height";
+  }
+
+  void _pushTrackingHistoryEntry() {
+    trackingHistory.insert(
+      0,
+      TrackingHistoryEntry(
+        timeLabel: "Now",
+        mode: trackerMode,
+        azimuth: azimuth,
+        tilt: tilt,
+        avgIrradiance: avgIrradiance,
+        brightestDirection: brightestDirection,
+        topLeft: ldrTopLeft,
+        topRight: ldrTopRight,
+        bottomLeft: ldrBottomLeft,
+        bottomRight: ldrBottomRight,
+      ),
+    );
+
+    if (trackingHistory.length > 12) {
+      trackingHistory.removeLast();
+    }
+
+    for (int i = 0; i < trackingHistory.length; i++) {
+      if (i == 0) continue;
+      final secondsAgo = i * 10;
+      final old = trackingHistory[i];
+      trackingHistory[i] = TrackingHistoryEntry(
+        timeLabel: "$secondsAgo sec ago",
+        mode: old.mode,
+        azimuth: old.azimuth,
+        tilt: old.tilt,
+        avgIrradiance: old.avgIrradiance,
+        brightestDirection: old.brightestDirection,
+        topLeft: old.topLeft,
+        topRight: old.topRight,
+        bottomLeft: old.bottomLeft,
+        bottomRight: old.bottomRight,
+      );
+    }
   }
 
   void _tickMockData() {
@@ -129,6 +258,7 @@ class DashboardViewModel extends ChangeNotifier {
     voltageV = 18.2 + ((now % 6) * 0.25);
     currentA = 4.2 + ((now % 5) * 0.18);
 
+    _pushTrackingHistoryEntry();
     notifyListeners();
   }
 
