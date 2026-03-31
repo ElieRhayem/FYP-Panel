@@ -1,11 +1,9 @@
 import 'dart:math' as math;
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_application/core/widgets/mc_metric.dart';
 import 'package:mobile_application/core/widgets/mc_panel.dart';
-import 'package:mobile_application/core/widgets/mc_radar_scanner.dart';
-import 'package:mobile_application/core/widgets/mc_sensor_panel.dart';
-import 'package:mobile_application/core/widgets/mc_timeline.dart';
 import 'package:mobile_application/viewmodels/dashboard_view_model.dart';
 import 'package:mobile_application/widgets/grid_background.dart';
 import 'package:mobile_application/views/common/dashboard/dashboard_widgets.dart';
@@ -58,54 +56,6 @@ class _CleaningTabState extends State<CleaningTab>
     final border = Theme.of(context).dividerTheme.color ?? Colors.white24;
 
     _syncAnimation(vm.cleaningInProgress);
-
-    final sensors = [
-      const SensorStatus(
-        name: "Water pump",
-        online: true,
-        strength: 4,
-        hint: "Pressure stable",
-      ),
-      const SensorStatus(
-        name: "Water level",
-        online: true,
-        strength: 3,
-        hint: "Tank status OK",
-      ),
-      SensorStatus(
-        name: "Nozzle valve",
-        online: !vm.safetyLock,
-        strength: vm.safetyLock ? 0 : 3,
-        hint: vm.safetyLock ? "Blocked by safety lock" : "Actuator ready",
-      ),
-      const SensorStatus(
-        name: "Temp safety",
-        online: true,
-        strength: 2,
-        hint: "Within limits",
-      ),
-    ];
-
-    final events = [
-      McEvent(
-        time: DateTime.now(),
-        title: "Cleaning logic evaluated",
-        details: vm.cleaningRecommended ? "Recommended (loss > 5%)" : "Not required",
-        dot: vm.cleaningRecommended ? Colors.redAccent : Colors.greenAccent,
-      ),
-      McEvent(
-        time: DateTime.now().subtract(const Duration(seconds: 10)),
-        title: "Soiling scan complete",
-        details: "Index updated from camera module",
-        dot: const Color(0xFF7C4DFF),
-      ),
-      McEvent(
-        time: DateTime.now().subtract(const Duration(seconds: 18)),
-        title: vm.cleaningInProgress ? "Cleaning running" : "Pump ready",
-        details: vm.cleaningInProgress ? "Cleaning cycle active" : "Standby state",
-        dot: vm.cleaningInProgress ? Colors.cyanAccent : Colors.greenAccent,
-      ),
-    ];
 
     return Stack(
       children: [
@@ -168,28 +118,6 @@ class _CleaningTabState extends State<CleaningTab>
             ),
             const SizedBox(height: 14),
             McPanel(
-              title: "SYSTEM READINESS",
-              child: Row(
-                children: [
-                  Expanded(
-                    child: McRadarScanner(
-                      healthScore: vm.cleaningHealth,
-                      title: "CLEANING HEALTH",
-                      accent: Colors.cyanAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: McSensorPanel(
-                      title: "ACTUATORS",
-                      sensors: sensors,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            McPanel(
               title: "CLEANING VISUAL",
               child: Column(
                 children: [
@@ -218,11 +146,6 @@ class _CleaningTabState extends State<CleaningTab>
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 14),
-            McPanel(
-              title: "EVENT STREAM",
-              child: McTimeline(events: events),
             ),
             const SizedBox(height: 14),
             McPanel(
@@ -261,6 +184,96 @@ class _CleaningTabState extends State<CleaningTab>
                 ],
               ),
             ),
+            const SizedBox(height: 14),
+            McPanel(
+              title: "CLEANING HISTORY",
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _showCleaningHistoryDialog(context, vm),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: border),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.03),
+                        Colors.cyanAccent.withOpacity(0.03),
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.cyanAccent.withOpacity(0.10),
+                          border: Border.all(
+                            color: Colors.cyanAccent.withOpacity(0.25),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.history_rounded,
+                          color: Colors.cyanAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "View cleaning activity log",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              vm.cleaningHistory.isNotEmpty
+                                  ? "Last update: ${_formatFullDateTime(vm.cleaningHistory.first.timestamp)}"
+                                  : "No cleaning history available yet",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.72),
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _historyChip(
+                                  icon: Icons.format_list_bulleted_rounded,
+                                  label: "${vm.cleaningHistory.length} entries",
+                                ),
+                                _historyChip(
+                                  icon: Icons.cleaning_services_rounded,
+                                  label: "${vm.cleaningCycles} cycles",
+                                ),
+                                _historyChip(
+                                  icon: Icons.water_drop_outlined,
+                                  label: "${vm.waterUsageLiters.toStringAsFixed(1)} L total",
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                        color: Colors.white.withOpacity(0.6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ],
@@ -270,6 +283,244 @@ class _CleaningTabState extends State<CleaningTab>
   void _snack(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg)),
+    );
+  }
+
+  String _formatFullDateTime(DateTime dt) {
+    return DateFormat('dd MMM yyyy • HH:mm:ss').format(dt);
+  }
+
+  Widget _historyChip({
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.white.withOpacity(0.05),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.cyanAccent),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.82),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCleaningHistoryDialog(BuildContext context, DashboardViewModel vm) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        final history = vm.cleaningHistory;
+
+        return Dialog(
+          backgroundColor: const Color(0xFF0B1220),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: Colors.cyanAccent.withOpacity(0.15)),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 700, maxHeight: 560),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.cyanAccent.withOpacity(0.10),
+                        border: Border.all(
+                          color: Colors.cyanAccent.withOpacity(0.22),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.history_rounded,
+                        color: Colors.cyanAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        "Cleaning History",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white.withOpacity(0.75),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Full activity log for cleaning-related actions, timestamps, losses, and water usage.",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.68),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: history.isEmpty
+                      ? Center(
+                    child: Text(
+                      "No cleaning history recorded yet.",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                  )
+                      : ListView.separated(
+                    itemCount: history.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final entry = history[index];
+                      final statusColor = entry.status == "Completed"
+                          ? Colors.greenAccent
+                          : entry.status == "Running"
+                          ? Colors.cyanAccent
+                          : entry.status == "Recommended"
+                          ? Colors.orangeAccent
+                          : Colors.redAccent;
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.03),
+                              statusColor.withOpacity(0.05),
+                            ],
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(999),
+                                    color: statusColor.withOpacity(0.12),
+                                    border: Border.all(
+                                      color: statusColor.withOpacity(0.25),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    entry.status.toUpperCase(),
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  _formatFullDateTime(entry.timestamp),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.62),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              entry.action,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _detailPill("Soiling", "${entry.soilingIndex.toStringAsFixed(1)}%"),
+                                _detailPill("Loss", "${entry.estimatedLoss.toStringAsFixed(1)}%"),
+                                _detailPill("Water", "${entry.waterUsedLiters.toStringAsFixed(1)} L"),
+                                _detailPill("Source", entry.source),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailPill(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.04),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "$label: ",
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.60),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

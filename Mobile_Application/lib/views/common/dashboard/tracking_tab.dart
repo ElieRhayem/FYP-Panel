@@ -170,71 +170,99 @@ class TrackingTab extends StatelessWidget {
             const SizedBox(height: 14),
             McPanel(
               title: "TRACKING HISTORY",
-              trailing: InkWell(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
                 onTap: () => _showTrackingHistoryDialog(context, vm),
-                borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: cs.primary.withOpacity(0.25)),
-                    color: cs.primary.withOpacity(0.08),
-                  ),
-                  child: Text(
-                    "VIEW ALL",
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                      fontSize: 12,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: border),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.03),
+                        cs.primary.withOpacity(0.03),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Row(
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: McMetric(
-                          label: "Updates Logged",
-                          value: vm.trackingHistory.length.toString(),
-                          unit: "",
-                          icon: Icons.history_rounded,
-                          accent: cs.primary,
-                          hint: "Recent tracking records stored in UI",
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: cs.primary.withOpacity(0.10),
+                          border: Border.all(
+                            color: cs.primary.withOpacity(0.25),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.track_changes_rounded,
+                          color: cs.primary,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
-                        child: McMetric(
-                          label: "Latest Avg Irradiance",
-                          value: vm.avgIrradiance.toStringAsFixed(1),
-                          unit: "%",
-                          icon: Icons.wb_sunny_outlined,
-                          accent: const Color(0xFFFFC857),
-                          hint: "Latest average from the 4 LDR sensors",
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "View tracking activity log",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              vm.trackingHistory.isNotEmpty
+                                  ? "Last update: ${vm.trackingHistory.first.timeLabel}"
+                                  : "No tracking history available yet",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.72),
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _historyChip(
+                                  icon: Icons.format_list_bulleted_rounded,
+                                  label: "${vm.trackingHistory.length} entries",
+                                  color: cs.primary,
+                                ),
+                                _historyChip(
+                                  icon: Icons.navigation_rounded,
+                                  label: "Az ${vm.azimuth.toStringAsFixed(0)}°",
+                                  color: cs.primary,
+                                ),
+                                _historyChip(
+                                  icon: Icons.change_circle_outlined,
+                                  label: "Tilt ${vm.tilt.toStringAsFixed(0)}°",
+                                  color: const Color(0xFF7C4DFF),
+                                ),
+                                _historyChip(
+                                  icon: Icons.wb_sunny_outlined,
+                                  label: "${vm.avgIrradiance.toStringAsFixed(1)}%",
+                                  color: const Color(0xFFFFC857),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                        color: Colors.white.withOpacity(0.6),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  ...vm.trackingHistory.take(3).map(
-                        (entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _TrackingHistoryPreviewTile(entry: entry),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showTrackingHistoryDialog(context, vm),
-                      icon: const Icon(Icons.open_in_full_rounded),
-                      label: const Text("Open Detailed History"),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -249,35 +277,102 @@ class TrackingTab extends StatelessWidget {
     );
   }
 
+  Widget _historyChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.white.withOpacity(0.05),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.82),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailPill(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.04),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "$label: ",
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.60),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showTrackingHistoryDialog(
       BuildContext context,
       DashboardViewModel vm,
       ) {
     final cs = Theme.of(context).colorScheme;
+    final history = vm.trackingHistory;
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (_) {
         return Dialog(
-          backgroundColor: const Color(0xFF0A0F1E),
+          backgroundColor: const Color(0xFF0B1220),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: cs.primary.withOpacity(0.18)),
+            side: BorderSide(color: cs.primary.withOpacity(0.15)),
           ),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
-            padding: const EdgeInsets.all(18),
+            constraints: const BoxConstraints(maxWidth: 700, maxHeight: 560),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: cs.primary.withOpacity(0.12),
-                        border: Border.all(color: cs.primary.withOpacity(0.25)),
+                        color: cs.primary.withOpacity(0.10),
+                        border: Border.all(
+                          color: cs.primary.withOpacity(0.22),
+                        ),
                       ),
                       child: Icon(
                         Icons.track_changes_rounded,
@@ -285,67 +380,136 @@ class TrackingTab extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Text(
-                        "TRACKING HISTORY",
+                        "Tracking History",
                         style: TextStyle(
-                          color: cs.primary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white.withOpacity(0.75),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  "Recent tracking updates including mode, orientation, irradiance and suggested correction direction.",
+                Text(
+                  "Full activity log for tracking updates, mode changes, orientation values, and irradiance readings.",
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    height: 1.4,
+                    color: Colors.white.withOpacity(0.68),
+                    height: 1.35,
                   ),
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _historyStatChip(
-                      icon: Icons.history_rounded,
-                      label: "Entries",
-                      value: vm.trackingHistory.length.toString(),
-                    ),
-                    _historyStatChip(
-                      icon: Icons.navigation_rounded,
-                      label: "Current Azimuth",
-                      value: "${vm.azimuth.toStringAsFixed(0)}°",
-                    ),
-                    _historyStatChip(
-                      icon: Icons.change_circle_outlined,
-                      label: "Current Tilt",
-                      value: "${vm.tilt.toStringAsFixed(0)}°",
-                    ),
-                    _historyStatChip(
-                      icon: Icons.wb_sunny_outlined,
-                      label: "Avg Irradiance",
-                      value: "${vm.avgIrradiance.toStringAsFixed(1)}%",
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
                 Expanded(
-                  child: ListView.separated(
-                    itemCount: vm.trackingHistory.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  child: history.isEmpty
+                      ? Center(
+                    child: Text(
+                      "No tracking history recorded yet.",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                  )
+                      : ListView.separated(
+                    itemCount: history.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final entry = vm.trackingHistory[index];
-                      return _TrackingHistoryDialogTile(entry: entry);
+                      final entry = history[index];
+
+                      final modeColor = entry.mode == "AUTO"
+                          ? Colors.greenAccent
+                          : entry.mode == "MANUAL"
+                          ? Colors.orangeAccent
+                          : entry.mode == "SAFE"
+                          ? Colors.redAccent
+                          : cs.primary;
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.03),
+                              modeColor.withOpacity(0.05),
+                            ],
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(999),
+                                    color: modeColor.withOpacity(0.12),
+                                    border: Border.all(
+                                      color: modeColor.withOpacity(0.25),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    entry.mode.toUpperCase(),
+                                    style: TextStyle(
+                                      color: modeColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  entry.timeLabel,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.62),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              "Orientation and irradiance snapshot",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _detailPill("Azimuth", "${entry.azimuth.toStringAsFixed(0)}°"),
+                                _detailPill("Tilt", "${entry.tilt.toStringAsFixed(0)}°"),
+                                _detailPill("Avg Irradiance", "${entry.avgIrradiance.toStringAsFixed(1)}%"),
+                                _detailPill("Brightest", entry.brightestDirection),
+                                _detailPill("TL", "${entry.topLeft.toStringAsFixed(0)}%"),
+                                _detailPill("TR", "${entry.topRight.toStringAsFixed(0)}%"),
+                                _detailPill("BL", "${entry.bottomLeft.toStringAsFixed(0)}%"),
+                                _detailPill("BR", "${entry.bottomRight.toStringAsFixed(0)}%"),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -354,44 +518,6 @@ class TrackingTab extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _historyStatChip({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
-        color: Colors.white.withOpacity(0.04),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.white70),
-          const SizedBox(width: 8),
-          Text(
-            "$label: ",
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -610,179 +736,6 @@ class _CornerArrowButton extends StatelessWidget {
           color: enabled ? cs.primary : Colors.white38,
           size: 28,
         ),
-      ),
-    );
-  }
-}
-
-class _TrackingHistoryPreviewTile extends StatelessWidget {
-  final TrackingHistoryEntry entry;
-
-  const _TrackingHistoryPreviewTile({
-    required this.entry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-        color: Colors.white.withOpacity(0.03),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: cs.primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: cs.primary.withOpacity(0.35),
-                  blurRadius: 10,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.timeLabel,
-                  style: TextStyle(
-                    color: cs.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Mode ${entry.mode}  •  Az ${entry.azimuth.toStringAsFixed(0)}°  •  Tilt ${entry.tilt.toStringAsFixed(0)}°",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Avg Irradiance ${entry.avgIrradiance.toStringAsFixed(1)}%  •  Brightest ${entry.brightestDirection}",
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TrackingHistoryDialogTile extends StatelessWidget {
-  final TrackingHistoryEntry entry;
-
-  const _TrackingHistoryDialogTile({
-    required this.entry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    Widget metricChip(String label, String value) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.white.withOpacity(0.04),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: "$label: ",
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextSpan(
-                text: value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.primary.withOpacity(0.12)),
-        color: Colors.white.withOpacity(0.03),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.radio_button_checked_rounded, size: 14, color: cs.primary),
-              const SizedBox(width: 8),
-              Text(
-                entry.timeLabel,
-                style: TextStyle(
-                  color: cs.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                entry.mode,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              metricChip("Azimuth", "${entry.azimuth.toStringAsFixed(0)}°"),
-              metricChip("Tilt", "${entry.tilt.toStringAsFixed(0)}°"),
-              metricChip("Avg Irradiance", "${entry.avgIrradiance.toStringAsFixed(1)}%"),
-              metricChip("Brightest", entry.brightestDirection),
-              metricChip("TL", "${entry.topLeft.toStringAsFixed(0)}%"),
-              metricChip("TR", "${entry.topRight.toStringAsFixed(0)}%"),
-              metricChip("BL", "${entry.bottomLeft.toStringAsFixed(0)}%"),
-              metricChip("BR", "${entry.bottomRight.toStringAsFixed(0)}%"),
-            ],
-          ),
-        ],
       ),
     );
   }

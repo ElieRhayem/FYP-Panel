@@ -47,6 +47,26 @@ class TrackingHistoryEntry {
   });
 }
 
+class CleaningHistoryEntry {
+  final DateTime timestamp;
+  final String status;
+  final double soilingIndex;
+  final double estimatedLoss;
+  final String action;
+  final double waterUsedLiters;
+  final String source;
+
+  const CleaningHistoryEntry({
+    required this.timestamp,
+    required this.status,
+    required this.soilingIndex,
+    required this.estimatedLoss,
+    required this.action,
+    required this.waterUsedLiters,
+    required this.source,
+  });
+}
+
 class DashboardViewModel extends ChangeNotifier {
   double powerW = 842.0;
   double estimatedLoss = 4.8;
@@ -79,6 +99,30 @@ class DashboardViewModel extends ChangeNotifier {
   double waterUsageLiters = 1.2;
   int manualOverridesCount = 2;
   String lastCleaningLabel = "Yesterday";
+
+  void _addCleaningHistoryEntry({
+    required String status,
+    required String action,
+    required double waterUsedLiters,
+    required String source,
+  }) {
+    cleaningHistory.insert(
+      0,
+      CleaningHistoryEntry(
+        timestamp: DateTime.now(),
+        status: status,
+        soilingIndex: soilingIndex,
+        estimatedLoss: estimatedLoss,
+        action: action,
+        waterUsedLiters: waterUsedLiters,
+        source: source,
+      ),
+    );
+
+    if (cleaningHistory.length > 20) {
+      cleaningHistory.removeLast();
+    }
+  }
 
   final List<TrackingHistoryEntry> trackingHistory = [
     const TrackingHistoryEntry(
@@ -140,6 +184,45 @@ class DashboardViewModel extends ChangeNotifier {
       topRight: 71,
       bottomLeft: 74,
       bottomRight: 70,
+    ),
+  ];
+
+  final List<CleaningHistoryEntry> cleaningHistory = [
+    CleaningHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+      status: "Completed",
+      soilingIndex: 18.4,
+      estimatedLoss: 6.1,
+      action: "Manual cleaning cycle completed",
+      waterUsedLiters: 0.2,
+      source: "Manual",
+    ),
+    CleaningHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(hours: 3, minutes: 20)),
+      status: "Recommended",
+      soilingIndex: 16.8,
+      estimatedLoss: 5.3,
+      action: "Cleaning recommended but not started",
+      waterUsedLiters: 0.0,
+      source: "System",
+    ),
+    CleaningHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
+      status: "Completed",
+      soilingIndex: 21.2,
+      estimatedLoss: 7.4,
+      action: "Automatic cleaning cycle completed",
+      waterUsedLiters: 0.3,
+      source: "Automatic",
+    ),
+    CleaningHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(days: 2, hours: 6)),
+      status: "Stopped",
+      soilingIndex: 14.6,
+      estimatedLoss: 4.9,
+      action: "Cleaning cycle stopped by operator",
+      waterUsedLiters: 0.1,
+      source: "Manual",
     ),
   ];
 
@@ -321,6 +404,14 @@ class DashboardViewModel extends ChangeNotifier {
     manualOverridesCount++;
     waterUsageLiters += 0.2;
     lastCleaningLabel = "Running now";
+
+    _addCleaningHistoryEntry(
+      status: "Running",
+      action: "Cleaning cycle started manually",
+      waterUsedLiters: 0.2,
+      source: "Manual",
+    );
+
     notifyListeners();
   }
 
@@ -329,6 +420,14 @@ class DashboardViewModel extends ChangeNotifier {
     cleaningInProgress = false;
     manualOverridesCount++;
     lastCleaningLabel = "Just now";
+
+    _addCleaningHistoryEntry(
+      status: "Stopped",
+      action: "Cleaning cycle stopped by operator",
+      waterUsedLiters: 0.0,
+      source: "Manual",
+    );
+
     notifyListeners();
   }
 
