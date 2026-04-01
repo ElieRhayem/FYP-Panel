@@ -40,47 +40,53 @@ class _McRadarScannerState extends State<McRadarScanner>
   Widget build(BuildContext context) {
     final muted = Theme.of(context).textTheme.labelMedium?.color ?? Colors.white70;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.title, style: TextStyle(color: muted, letterSpacing: 1.2, fontSize: 12)),
-          const SizedBox(height: 10),
-          AspectRatio(
-            aspectRatio: 1,
-            child: AnimatedBuilder(
-              animation: _ctrl,
-              builder: (_, __) => CustomPaint(
-                painter: _RadarPainter(
-                  sweepT: _ctrl.value,
-                  health: widget.healthScore,
-                  accent: widget.accent,
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "${widget.healthScore.toStringAsFixed(0)}",
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: widget.accent,
-                        ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.title,
+          style: TextStyle(
+            color: muted,
+            letterSpacing: 1.2,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 10),
+        AspectRatio(
+          aspectRatio: 1,
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, __) => CustomPaint(
+              painter: _RadarPainter(
+                sweepT: _ctrl.value,
+                health: widget.healthScore,
+                accent: widget.accent,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "${widget.healthScore.toStringAsFixed(0)}",
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: widget.accent,
                       ),
-                      Text("HEALTH", style: TextStyle(color: muted, letterSpacing: 1.1)),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      "HEALTH",
+                      style: TextStyle(
+                        color: muted,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
