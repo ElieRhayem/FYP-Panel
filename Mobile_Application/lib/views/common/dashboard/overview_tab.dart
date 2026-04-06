@@ -13,15 +13,27 @@ import 'package:mobile_application/views/common/dashboard/dashboard_widgets.dart
 import 'package:mobile_application/views/common/dashboard/dashboard_helpers.dart';
 
 class OverviewTab extends StatefulWidget {
-  const OverviewTab({super.key});
+  final VoidCallback? onSeeMore;
+  final VoidCallback? onSoilingSeeMore;
+  final VoidCallback? onTrackingSeeMore;
+
+  const OverviewTab({
+    super.key,
+    this.onSeeMore,
+    this.onSoilingSeeMore,
+    this.onTrackingSeeMore,
+  });
 
   @override
   State<OverviewTab> createState() => _OverviewTabState();
 }
 
-class _OverviewTabState extends State<OverviewTab> {
+class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClientMixin{
   late Future<Map<String, dynamic>> _weatherFuture;
   Timer? _weatherRefreshTimer;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -206,12 +218,59 @@ class _OverviewTabState extends State<OverviewTab> {
     );
   }
 
+  Widget _energyDayRow({
+    required String day,
+    required double value,
+    required Color accent,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withOpacity(0.04),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: accent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              day,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.82),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            "${value.toStringAsFixed(0)} Wh",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEnergyDialog(BuildContext context, DashboardViewModel vm) {
     final cs = Theme.of(context).colorScheme;
     final totalWeek = vm.energyWeekWh.fold<double>(0, (a, b) => a + b);
     final avgWeek = totalWeek / vm.energyWeekWh.length;
     final highest = vm.energyWeekWh.reduce((a, b) => a > b ? a : b);
     final lowest = vm.energyWeekWh.reduce((a, b) => a < b ? a : b);
+    final dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     showDialog(
       context: context,
@@ -222,95 +281,149 @@ class _OverviewTabState extends State<OverviewTab> {
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(color: cs.primary.withOpacity(0.15)),
           ),
-          child: Container(
+          child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 700, maxHeight: 560),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: cs.primary.withOpacity(0.10),
-                        border: Border.all(color: cs.primary.withOpacity(0.22)),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final useTwoColumns = constraints.maxWidth >= 360;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: cs.primary.withOpacity(0.10),
+                              border: Border.all(color: cs.primary.withOpacity(0.22)),
+                            ),
+                            child: Icon(Icons.bolt_rounded, color: cs.primary),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              "Energy Details",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: Colors.white.withOpacity(0.75),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Icon(Icons.bolt_rounded, color: cs.primary),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        "Energy Details",
+                      const SizedBox(height: 8),
+                      Text(
+                        "Detailed production summary for the current day and the last 7 days.",
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
+                          color: Colors.white.withOpacity(0.68),
+                          height: 1.35,
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: Colors.white.withOpacity(0.75),
+                      const SizedBox(height: 16),
+                      if (useTwoColumns)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: McMetric(
+                                label: "Energy Today",
+                                value: vm.energyTodayWh.toStringAsFixed(0),
+                                unit: "Wh",
+                                icon: Icons.flash_on_rounded,
+                                accent: cs.primary,
+                                hint: "Current accumulated production",
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: McMetric(
+                                label: "Weekly Average",
+                                value: avgWeek.toStringAsFixed(0),
+                                unit: "Wh",
+                                icon: Icons.analytics_rounded,
+                                accent: const Color(0xFFFFC857),
+                                hint: "Average over last 7 days",
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            McMetric(
+                              label: "Energy Today",
+                              value: vm.energyTodayWh.toStringAsFixed(0),
+                              unit: "Wh",
+                              icon: Icons.flash_on_rounded,
+                              accent: cs.primary,
+                              hint: "Current accumulated production",
+                            ),
+                            const SizedBox(height: 12),
+                            McMetric(
+                              label: "Weekly Average",
+                              value: avgWeek.toStringAsFixed(0),
+                              unit: "Wh",
+                              icon: Icons.analytics_rounded,
+                              accent: const Color(0xFFFFC857),
+                              hint: "Average over last 7 days",
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _detailPill("Week Total", "${totalWeek.toStringAsFixed(0)} Wh"),
+                          _detailPill("Best Day", "${highest.toStringAsFixed(0)} Wh"),
+                          _detailPill("Lowest Day", "${lowest.toStringAsFixed(0)} Wh"),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Detailed production summary for the current day and the last 7 days.",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.68),
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: McMetric(
-                        label: "Energy Today",
-                        value: vm.energyTodayWh.toStringAsFixed(0),
-                        unit: "Wh",
-                        icon: Icons.flash_on_rounded,
-                        accent: cs.primary,
-                        hint: "Current accumulated production",
+                      const SizedBox(height: 18),
+                      Text(
+                        "Daily Energy Output",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.90),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: McMetric(
-                        label: "Weekly Average",
-                        value: avgWeek.toStringAsFixed(0),
-                        unit: "Wh",
-                        icon: Icons.analytics_rounded,
-                        accent: const Color(0xFFFFC857),
-                        hint: "Average over last 7 days",
+                      const SizedBox(height: 10),
+                      Column(
+                        children: List.generate(vm.energyWeekWh.length, (index) {
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: index == vm.energyWeekWh.length - 1 ? 0 : 8,
+                            ),
+                            child: _energyDayRow(
+                              day: dayLabels[index % dayLabels.length],
+                              value: vm.energyWeekWh[index],
+                              accent: index == vm.energyWeekWh.length - 1
+                                  ? cs.primary
+                                  : const Color(0xFFFFC857),
+                            ),
+                          );
+                        }),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                MiniBarChart(
-                  values: vm.energyWeekWh,
-                  label: "Last 7 days",
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _detailPill("Week Total", "${totalWeek.toStringAsFixed(0)} Wh"),
-                    _detailPill("Best Day", "${highest.toStringAsFixed(0)} Wh"),
-                    _detailPill("Lowest Day", "${lowest.toStringAsFixed(0)} Wh"),
-                  ],
-                ),
-              ],
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         );
@@ -320,28 +433,12 @@ class _OverviewTabState extends State<OverviewTab> {
 
   String _lastChangedPositionLabel(DashboardViewModel vm) {
     if (vm.trackingHistory.isEmpty) return "No tracking history available";
-    if (vm.trackingHistory.length == 1) {
-      final latest = vm.trackingHistory.first;
-      return "${latest.timeLabel} • Az ${latest.azimuth.toStringAsFixed(0)}° • Tilt ${latest.tilt.toStringAsFixed(0)}°";
-    }
-
-    final latest = vm.trackingHistory[0];
-    final previous = vm.trackingHistory[1];
-
-    final azChanged =
-        latest.azimuth.toStringAsFixed(0) != previous.azimuth.toStringAsFixed(0);
-    final tiltChanged =
-        latest.tilt.toStringAsFixed(0) != previous.tilt.toStringAsFixed(0);
-
-    if (!azChanged && !tiltChanged) {
-      return "No recent movement detected";
-    }
-
-    return "${latest.timeLabel} • Az ${latest.azimuth.toStringAsFixed(0)}° • Tilt ${latest.tilt.toStringAsFixed(0)}°";
+    return vm.trackingHistory.first.timeLabel;
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final vm = context.watch<DashboardViewModel>();
     final cs = Theme.of(context).colorScheme;
 
@@ -516,49 +613,57 @@ class _OverviewTabState extends State<OverviewTab> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
-                      color: Colors.white.withOpacity(0.03),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _statusMiniTile(
-                            icon: Icons.favorite_rounded,
-                            label: "Health",
-                            value: "${vm.overallHealth.toStringAsFixed(0)}%",
-                            color: cs.primary,
-                          ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: McMetric(
+                          label: "Energy Today",
+                          value: vm.energyTodayWh.toStringAsFixed(0),
+                          unit: "Wh",
+                          icon: Icons.bolt_rounded,
+                          accent: cs.primary,
+                          hint: "Accumulated production today",
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _statusMiniTile(
-                            icon: Icons.cleaning_services_rounded,
-                            label: "Cleaning",
-                            value:
-                            vm.cleaningInProgress ? "ACTIVE" : "IDLE",
-                            color: vm.cleaningInProgress
-                                ? Colors.cyanAccent
-                                : Colors.white70,
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: McMetric(
+                          label: "7-Day Avg",
+                          value: (vm.energyWeekWh.fold<double>(
+                              0, (a, b) => a + b) /
+                              vm.energyWeekWh.length)
+                              .toStringAsFixed(0),
+                          unit: "Wh",
+                          icon: Icons.analytics_rounded,
+                          accent: const Color(0xFFFFC857),
+                          hint: "Average daily production",
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _statusMiniTile(
-                            icon: Icons.air_rounded,
-                            label: "Wind Sensor",
-                            value: vm.windSensorOnline
-                                ? "ONLINE"
-                                : "OFFLINE",
-                            color: vm.windSensorOnline
-                                ? Colors.greenAccent
-                                : Colors.redAccent,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _showEnergyDialog(context, vm),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Text(
+                            "Tap for detailed energy view",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.70),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                          const Spacer(),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 16,
+                            color: Colors.white.withOpacity(0.60),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -567,9 +672,24 @@ class _OverviewTabState extends State<OverviewTab> {
             const SizedBox(height: 14),
             McPanel(
               title: "OVERALL HEALTH",
+              trailing: InkWell(
+                onTap: widget.onSeeMore,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    "See more",
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
               child: McRadarScanner(
                 healthScore: vm.overallHealth,
-                title: "SYSTEM HEALTH",
+                title: "",
                 accent: cs.primary,
               ),
             ),
@@ -581,90 +701,37 @@ class _OverviewTabState extends State<OverviewTab> {
                 final left = Column(
                   children: [
                     McPanel(
-                      title: "ENERGY",
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => _showEnergyDialog(context, vm),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.08),
+                      title: "SOILING",
+                      trailing: InkWell(
+                        onTap: widget.onSoilingSeeMore,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Text(
+                            "See more",
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0.03),
-                                cs.primary.withOpacity(0.03),
-                              ],
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: McMetric(
-                                      label: "Energy Today",
-                                      value:
-                                      vm.energyTodayWh.toStringAsFixed(0),
-                                      unit: "Wh",
-                                      icon: Icons.bolt_rounded,
-                                      accent: cs.primary,
-                                      hint: "Accumulated production today",
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: McMetric(
-                                      label: "7-Day Avg",
-                                      value: (vm.energyWeekWh.fold<double>(
-                                          0, (a, b) => a + b) /
-                                          vm.energyWeekWh.length)
-                                          .toStringAsFixed(0),
-                                      unit: "Wh",
-                                      icon: Icons.analytics_rounded,
-                                      accent: const Color(0xFFFFC857),
-                                      hint: "Average daily production",
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              MiniBarChart(
-                                values: vm.energyWeekWh,
-                                label: "Last 7 days",
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Text(
-                                    "Tap for detailed energy view",
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.70),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    size: 16,
-                                    color: Colors.white.withOpacity(0.60),
-                                  ),
-                                ],
-                              ),
-                            ],
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    McPanel(
-                      title: "SOILING",
                       child: Column(
                         children: [
                           Row(
                             children: [
+                              Expanded(
+                                child: McMetric(
+                                  label: "Mode",
+                                  value: vm.cleaningMode,
+                                  unit: "",
+                                  icon: Icons.cleaning_services_rounded,
+                                  accent: const Color(0xFFFFC857),
+                                  hint: "Current cleaning operating mode",
+                                ),
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: McMetric(
                                   label: "Soiling Index",
@@ -673,21 +740,6 @@ class _OverviewTabState extends State<OverviewTab> {
                                   icon: Icons.visibility_rounded,
                                   accent: const Color(0xFF7C4DFF),
                                   hint: "Latest camera-based surface scan",
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: McMetric(
-                                  label: "Estimated Loss",
-                                  value: vm.estimatedLoss.toStringAsFixed(1),
-                                  unit: "%",
-                                  icon: Icons.warning_rounded,
-                                  accent: vm.cleaningRecommended
-                                      ? Colors.redAccent
-                                      : Colors.greenAccent,
-                                  hint: vm.cleaningRecommended
-                                      ? "Cleaning may be needed"
-                                      : "Loss still acceptable",
                                 ),
                               ),
                             ],
@@ -709,11 +761,9 @@ class _OverviewTabState extends State<OverviewTab> {
                                   height: 44,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color:
-                                    Colors.cyanAccent.withOpacity(0.10),
+                                    color: Colors.cyanAccent.withOpacity(0.10),
                                     border: Border.all(
-                                      color: Colors.cyanAccent
-                                          .withOpacity(0.25),
+                                      color: Colors.cyanAccent.withOpacity(0.25),
                                     ),
                                   ),
                                   child: const Icon(
@@ -724,8 +774,7 @@ class _OverviewTabState extends State<OverviewTab> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         "Last cleaned",
@@ -737,7 +786,7 @@ class _OverviewTabState extends State<OverviewTab> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        vm.lastCleaningLabel,
+                                        vm.lastCleaningDisplayLabel,
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 15,
@@ -760,6 +809,21 @@ class _OverviewTabState extends State<OverviewTab> {
                   children: [
                     McPanel(
                       title: "TRACKING SNAPSHOT",
+                      trailing: InkWell(
+                        onTap: widget.onTrackingSeeMore,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Text(
+                            "See more",
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
                       child: Column(
                         children: [
                           Row(
@@ -777,42 +841,18 @@ class _OverviewTabState extends State<OverviewTab> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: McMetric(
-                                  label: "Weather",
-                                  value: vm.weatherStatus,
-                                  unit: "",
-                                  icon: Icons.wb_cloudy_rounded,
-                                  accent: cs.primary,
-                                  hint: "Environmental condition for tracking",
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _statusMiniTile(
-                                  icon: Icons.navigation_rounded,
-                                  label: "Azimuth",
-                                  value:
-                                  "${vm.azimuth.toStringAsFixed(0)}°",
-                                  color: cs.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _statusMiniTile(
-                                  icon: Icons.change_circle_outlined,
-                                  label: "Tilt",
-                                  value: "${vm.tilt.toStringAsFixed(0)}°",
-                                  color: const Color(0xFF7C4DFF),
+                                  label: "Avg Irradiance",
+                                  value: vm.avgIrradiance.toStringAsFixed(1),
+                                  unit: "%",
+                                  icon: Icons.wb_sunny_outlined,
+                                  accent: const Color(0xFFFFC857),
+                                  hint: "Average across 4 LDR sensors",
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Container(
-                            width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
@@ -821,24 +861,46 @@ class _OverviewTabState extends State<OverviewTab> {
                               ),
                               color: Colors.white.withOpacity(0.03),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                const Text(
-                                  "Last changed position",
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.cyanAccent.withOpacity(0.10),
+                                    border: Border.all(
+                                      color: Colors.cyanAccent.withOpacity(0.25),
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.history_rounded,
+                                    color: Colors.cyanAccent,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _lastChangedPositionLabel(vm),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "Last changed position",
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _lastChangedPositionLabel(vm),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],

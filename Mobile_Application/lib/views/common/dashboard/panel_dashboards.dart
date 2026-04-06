@@ -37,6 +37,39 @@ class _PanelDashboardsState extends State<PanelDashboards> {
     Navigator.pushReplacementNamed(context, '/logIn/');
   }
 
+  void _goToSensorsTab() {
+    setState(() {
+      _currentIndex = 3;
+    });
+    _pageController.animateToPage(
+      3,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _goToCleaningTab() {
+    setState(() {
+      _currentIndex = 2;
+    });
+    _pageController.animateToPage(
+      2,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _goToTrackingTab() {
+    setState(() {
+      _currentIndex = 1;
+    });
+    _pageController.animateToPage(
+      1,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   void _showLogoutDialog() {
     showDialog(
       context: context,
@@ -124,7 +157,11 @@ class _PanelDashboardsState extends State<PanelDashboards> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const OverviewTab(),
+      OverviewTab(
+        onSeeMore: _goToSensorsTab,
+        onSoilingSeeMore: _goToCleaningTab,
+        onTrackingSeeMore: _goToTrackingTab,
+      ),
       const TrackingTab(),
       const CleaningTab(),
       const SensorsStatusTab(),

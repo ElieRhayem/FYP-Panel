@@ -24,8 +24,8 @@ class DashboardSensorItem {
 class TrackingHistoryEntry {
   final String timeLabel;
   final String mode;
-  final double azimuth;
   final double tilt;
+  final double roll;
   final double avgIrradiance;
   final String brightestDirection;
   final double topLeft;
@@ -36,8 +36,8 @@ class TrackingHistoryEntry {
   const TrackingHistoryEntry({
     required this.timeLabel,
     required this.mode,
-    required this.azimuth,
     required this.tilt,
+    required this.roll,
     required this.avgIrradiance,
     required this.brightestDirection,
     required this.topLeft,
@@ -75,8 +75,9 @@ class DashboardViewModel extends ChangeNotifier {
   List<double> energyWeekWh = [4200, 5100, 4800, 5600, 5900, 6100, 5230];
 
   String trackerMode = "AUTO";
-  double azimuth = 148.0;
+  String cleaningMode = "AUTO";
   double tilt = 32.0;
+  double roll = 0.0;
   String weatherStatus = "Clear";
   double ldrTopLeft = 72.0;
   double ldrTopRight = 81.0;
@@ -93,12 +94,61 @@ class DashboardViewModel extends ChangeNotifier {
   bool forceCleaningReady = false;
   bool trackingManualMode = false;
   bool safetyLock = false;
-
+  bool trackingSafetyAlert = false;
+  bool panelStowed = false;
   int cleaningCycles = 3;
   double trackerUptime = 96.0;
   double waterUsageLiters = 1.2;
   int manualOverridesCount = 2;
   String lastCleaningLabel = "Yesterday";
+
+  String _formatLastCleaningDate(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = today.difference(target).inDays;
+
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final time = "$hour:$minute";
+
+    if (difference == 0) {
+      return "Today • $time";
+    }
+
+    if (difference == 1) {
+      return "Yesterday • $time";
+    }
+
+    const weekdays = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+
+    return "${weekdays[dateTime.weekday - 1]} • $time";
+  }
+
+  String get lastCleaningDisplayLabel {
+    final latestCleaningEntry = cleaningHistory.firstWhere(
+          (entry) => entry.status == "Completed" || entry.status == "Running",
+      orElse: () => CleaningHistoryEntry(
+        timestamp: DateTime.now(),
+        status: "Completed",
+        soilingIndex: soilingIndex,
+        estimatedLoss: estimatedLoss,
+        action: "",
+        waterUsedLiters: 0.0,
+        source: "",
+      ),
+    );
+
+    return _formatLastCleaningDate(latestCleaningEntry.timestamp);
+  }
 
   void _addCleaningHistoryEntry({
     required String status,
@@ -128,8 +178,8 @@ class DashboardViewModel extends ChangeNotifier {
     const TrackingHistoryEntry(
       timeLabel: "Now",
       mode: "AUTO",
-      azimuth: 148,
       tilt: 32,
+      roll: 0,
       avgIrradiance: 71.5,
       brightestDirection: "RIGHT",
       topLeft: 72,
@@ -140,8 +190,8 @@ class DashboardViewModel extends ChangeNotifier {
     const TrackingHistoryEntry(
       timeLabel: "10 sec ago",
       mode: "AUTO",
-      azimuth: 146,
       tilt: 31,
+      roll: 0,
       avgIrradiance: 68.5,
       brightestDirection: "TOP",
       topLeft: 70,
@@ -152,8 +202,8 @@ class DashboardViewModel extends ChangeNotifier {
     const TrackingHistoryEntry(
       timeLabel: "20 sec ago",
       mode: "SAFE",
-      azimuth: 144,
       tilt: 30,
+      roll: 0,
       avgIrradiance: 63.0,
       brightestDirection: "RIGHT",
       topLeft: 60,
@@ -164,8 +214,8 @@ class DashboardViewModel extends ChangeNotifier {
     const TrackingHistoryEntry(
       timeLabel: "30 sec ago",
       mode: "AUTO",
-      azimuth: 143,
       tilt: 29,
+      roll: 0,
       avgIrradiance: 61.8,
       brightestDirection: "TOP",
       topLeft: 64,
@@ -176,8 +226,8 @@ class DashboardViewModel extends ChangeNotifier {
     const TrackingHistoryEntry(
       timeLabel: "40 sec ago",
       mode: "MANUAL",
-      azimuth: 150,
       tilt: 34,
+      roll: 0,
       avgIrradiance: 73.2,
       brightestDirection: "LEFT",
       topLeft: 78,
@@ -251,7 +301,8 @@ class DashboardViewModel extends ChangeNotifier {
     });
   }
 
-  bool get canManualCornerControl => trackingManualMode && !safetyLock;
+  bool get canManualCornerControl =>
+      trackingManualMode && !safetyLock && !trackingSafetyAlert;
 
   String get manualCornerHint {
     if (!trackingManualMode) return "Enable manual mode to adjust panel corners";
@@ -265,8 +316,8 @@ class DashboardViewModel extends ChangeNotifier {
       TrackingHistoryEntry(
         timeLabel: "Now",
         mode: trackerMode,
-        azimuth: azimuth,
         tilt: tilt,
+        roll: roll,
         avgIrradiance: avgIrradiance,
         brightestDirection: brightestDirection,
         topLeft: ldrTopLeft,
@@ -287,8 +338,8 @@ class DashboardViewModel extends ChangeNotifier {
       trackingHistory[i] = TrackingHistoryEntry(
         timeLabel: "$secondsAgo sec ago",
         mode: old.mode,
-        azimuth: old.azimuth,
         tilt: old.tilt,
+        roll: old.roll,
         avgIrradiance: old.avgIrradiance,
         brightestDirection: old.brightestDirection,
         topLeft: old.topLeft,
@@ -307,24 +358,32 @@ class DashboardViewModel extends ChangeNotifier {
     soilingIndex = 10 + (now % 8) * 0.9;
     energyTodayWh += 4.0;
 
-    azimuth = 145 + (now % 8).toDouble();
-    tilt = 30 + (now % 5).toDouble();
-
-    if (trackingManualMode) {
-      trackerMode = "MANUAL";
-    } else if (!windSensorOnline) {
-      trackerMode = "SAFE";
+    if (panelStowed) {
+      tilt = 0.0;
+      roll = 0.0;
     } else {
-      trackerMode = "AUTO";
+      tilt = 30 + (now % 5).toDouble();
     }
 
     weatherStatus = (now % 2 == 0) ? "Clear" : "Partly Cloudy";
     windSensorOnline = now % 4 != 0;
 
-    ldrTopLeft = 55 + (now % 25).toDouble();
-    ldrTopRight = 60 + ((now + 4) % 25).toDouble();
-    ldrBottomLeft = 50 + ((now + 8) % 25).toDouble();
-    ldrBottomRight = 58 + ((now + 2) % 25).toDouble();
+    ldrTopLeft = 52 + ((now + 3) % 24).toDouble();
+    ldrTopRight = 52 + ((now + 9) % 24).toDouble();
+    ldrBottomLeft = 52 + ((now + 15) % 24).toDouble();
+    ldrBottomRight = 52 + ((now + 21) % 24).toDouble();
+
+    trackingSafetyAlert = !windSensorOnline || safetyLock;
+
+    if (panelStowed) {
+      trackerMode = "STOW";
+    } else if (trackingSafetyAlert) {
+      trackerMode = "SAFE";
+    } else if (trackingManualMode) {
+      trackerMode = "MANUAL";
+    } else {
+      trackerMode = "AUTO";
+    }
 
     // Mock sensor values/statuses for Sensors Status tab
     sunSensorOnline = now % 11 != 0;
@@ -346,13 +405,8 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   double get overallHealth {
-    double score = 100 - estimatedLoss * 4;
-
-    if (estimatedLoss >= 5) score -= 8;
-    if (!windSensorOnline) score -= 10;
-    if (cleaningInProgress) score -= 4;
-
-    return score.clamp(0, 100).toDouble();
+    if (totalSensors == 0) return 0;
+    return ((workingSensors / totalSensors) * 100).toDouble();
   }
 
   double get trackerHealth {
@@ -376,23 +430,57 @@ class DashboardViewModel extends ChangeNotifier {
 
   void setTrackingManualMode(bool value) {
     trackingManualMode = value;
+    trackingSafetyAlert = !windSensorOnline || safetyLock;
+
     if (trackingManualMode) {
-      trackerMode = "MANUAL";
+      panelStowed = false;
+      trackerMode = trackingSafetyAlert ? "SAFE" : "MANUAL";
       manualOverridesCount++;
     } else {
-      trackerMode = windSensorOnline ? "AUTO" : "SAFE";
+      trackerMode = panelStowed
+          ? "STOW"
+          : (trackingSafetyAlert ? "SAFE" : "AUTO");
     }
+
     notifyListeners();
   }
 
   void setSafetyLock(bool value) {
     safetyLock = value;
+    trackingSafetyAlert = !windSensorOnline || safetyLock;
+
+    if (panelStowed) {
+      trackerMode = "STOW";
+    } else if (trackingSafetyAlert) {
+      trackerMode = "SAFE";
+    } else if (trackingManualMode) {
+      trackerMode = "MANUAL";
+    } else {
+      trackerMode = "AUTO";
+    }
+
     manualOverridesCount++;
     notifyListeners();
   }
 
   void setForceCleaningReady(bool value) {
     forceCleaningReady = value;
+
+    if (!forceCleaningReady && cleaningInProgress) {
+      cleaningInProgress = false;
+      cleaningMode = "AUTO";
+      lastCleaningLabel = "Just now";
+
+      _addCleaningHistoryEntry(
+        status: "Stopped",
+        action: "Cleaning cycle stopped because force cleaning was disabled",
+        waterUsedLiters: 0.0,
+        source: "Manual",
+      );
+    } else {
+      cleaningMode = forceCleaningReady ? "MANUAL" : "AUTO";
+    }
+
     manualOverridesCount++;
     notifyListeners();
   }
@@ -400,6 +488,7 @@ class DashboardViewModel extends ChangeNotifier {
   void startCleaningNow() {
     if (cleaningInProgress) return;
     cleaningInProgress = true;
+    cleaningMode = "MANUAL";
     cleaningCycles++;
     manualOverridesCount++;
     waterUsageLiters += 0.2;
@@ -418,6 +507,7 @@ class DashboardViewModel extends ChangeNotifier {
   void stopCleaning() {
     if (!cleaningInProgress) return;
     cleaningInProgress = false;
+    cleaningMode = forceCleaningReady ? "MANUAL" : "AUTO";
     manualOverridesCount++;
     lastCleaningLabel = "Just now";
 
@@ -432,6 +522,10 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   void stowPanel() {
+    panelStowed = true;
+    trackingManualMode = false;
+    tilt = 0.0;
+    roll = 0.0;
     trackerMode = "STOW";
     manualOverridesCount++;
     notifyListeners();
@@ -439,7 +533,11 @@ class DashboardViewModel extends ChangeNotifier {
 
   void returnToAutoTracking() {
     trackingManualMode = false;
-    trackerMode = windSensorOnline ? "AUTO" : "SAFE";
+    panelStowed = false;
+    trackingSafetyAlert = !windSensorOnline || safetyLock;
+
+    trackerMode = trackingSafetyAlert ? "SAFE" : "AUTO";
+
     manualOverridesCount++;
     notifyListeners();
   }
@@ -448,16 +546,11 @@ class DashboardViewModel extends ChangeNotifier {
       (ldrTopLeft + ldrTopRight + ldrBottomLeft + ldrBottomRight) / 4.0;
 
   String get brightestDirection {
-    final top = (ldrTopLeft + ldrTopRight) / 2.0;
-    final bottom = (ldrBottomLeft + ldrBottomRight) / 2.0;
-    final left = (ldrTopLeft + ldrBottomLeft) / 2.0;
-    final right = (ldrTopRight + ldrBottomRight) / 2.0;
-
     final values = {
-      "TOP": top,
-      "BOTTOM": bottom,
-      "LEFT": left,
-      "RIGHT": right,
+      "TL": ldrTopLeft,
+      "TR": ldrTopRight,
+      "BL": ldrBottomLeft,
+      "BR": ldrBottomRight,
     };
 
     return values.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
@@ -466,6 +559,7 @@ class DashboardViewModel extends ChangeNotifier {
   void raiseTopLeft() {
     if (!canManualCornerControl) return;
     cornerTopLeftHeight = (cornerTopLeftHeight + 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -474,6 +568,7 @@ class DashboardViewModel extends ChangeNotifier {
   void lowerTopLeft() {
     if (!canManualCornerControl) return;
     cornerTopLeftHeight = (cornerTopLeftHeight - 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -482,6 +577,7 @@ class DashboardViewModel extends ChangeNotifier {
   void raiseTopRight() {
     if (!canManualCornerControl) return;
     cornerTopRightHeight = (cornerTopRightHeight + 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -490,6 +586,7 @@ class DashboardViewModel extends ChangeNotifier {
   void lowerTopRight() {
     if (!canManualCornerControl) return;
     cornerTopRightHeight = (cornerTopRightHeight - 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -498,6 +595,7 @@ class DashboardViewModel extends ChangeNotifier {
   void raiseBottomLeft() {
     if (!canManualCornerControl) return;
     cornerBottomLeftHeight = (cornerBottomLeftHeight + 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -506,6 +604,7 @@ class DashboardViewModel extends ChangeNotifier {
   void lowerBottomLeft() {
     if (!canManualCornerControl) return;
     cornerBottomLeftHeight = (cornerBottomLeftHeight - 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -514,6 +613,7 @@ class DashboardViewModel extends ChangeNotifier {
   void raiseBottomRight() {
     if (!canManualCornerControl) return;
     cornerBottomRightHeight = (cornerBottomRightHeight + 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();
@@ -522,6 +622,7 @@ class DashboardViewModel extends ChangeNotifier {
   void lowerBottomRight() {
     if (!canManualCornerControl) return;
     cornerBottomRightHeight = (cornerBottomRightHeight - 5).clamp(0, 100).toDouble();
+    panelStowed = false;
     trackerMode = "MANUAL";
     manualOverridesCount++;
     notifyListeners();

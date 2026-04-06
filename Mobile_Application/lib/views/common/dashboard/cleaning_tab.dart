@@ -54,7 +54,7 @@ class _CleaningTabState extends State<CleaningTab>
     final vm = context.watch<DashboardViewModel>();
     final cs = Theme.of(context).colorScheme;
     final border = Theme.of(context).dividerTheme.color ?? Colors.white24;
-
+    final cleaningManualActive = vm.cleaningMode == "MANUAL";
     _syncAnimation(vm.cleaningInProgress);
 
     return Stack(
@@ -64,17 +64,30 @@ class _CleaningTabState extends State<CleaningTab>
           padding: const EdgeInsets.all(16),
           children: [
             McPanel(
-              title: "CLEANING DECISION",
+              title: "CLEANING STATUS",
               trailing: Text(
-                vm.cleaningRecommended ? "RECOMMENDED" : "HOLD",
+                vm.cleaningMode.toUpperCase(),
                 style: TextStyle(
-                  color: vm.cleaningRecommended ? Colors.redAccent : Colors.greenAccent,
+                  color: cs.primary,
                   letterSpacing: 1.0,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               child: Column(
                 children: [
+                  McMetric(
+                    label: "Mode",
+                    value: vm.cleaningMode,
+                    unit: "",
+                    icon: Icons.cleaning_services_rounded,
+                    accent: cleaningManualActive
+                        ? cs.primary
+                        : const Color(0xFFFFC857),
+                    hint: cleaningManualActive
+                        ? "Manual cleaning override enabled"
+                        : "Current cleaning operating state",
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
@@ -83,8 +96,9 @@ class _CleaningTabState extends State<CleaningTab>
                           value: vm.soilingIndex.toStringAsFixed(1),
                           unit: "%",
                           icon: Icons.visibility_rounded,
-                          accent: const Color(0xFF7C4DFF),
-                          hint: "From camera scan",
+                          accent: cleaningManualActive
+                              ? cs.primary
+                              : const Color(0xFF7C4DFF),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -94,55 +108,15 @@ class _CleaningTabState extends State<CleaningTab>
                           value: vm.estimatedLoss.toStringAsFixed(1),
                           unit: "%",
                           icon: Icons.warning_rounded,
-                          accent: vm.cleaningRecommended
-                              ? Colors.redAccent
-                              : Colors.greenAccent,
+                          accent: cleaningManualActive
+                              ? cs.primary
+                              : (vm.cleaningRecommended ? Colors.redAccent : Colors.greenAccent),
                           hint: vm.cleaningRecommended
                               ? "Above threshold"
                               : "Below threshold",
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  McMetric(
-                    label: "Action",
-                    value: vm.cleaningAction,
-                    unit: "",
-                    icon: Icons.cleaning_services_rounded,
-                    accent: cs.primary,
-                    hint: "Later this becomes a real command to Raspberry Pi",
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            McPanel(
-              title: "CLEANING VISUAL",
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 250,
-                    child: AnimatedBuilder(
-                      animation: _washController,
-                      builder: (context, _) {
-                        return _SolarPanelCleaningAnimation(
-                          active: vm.cleaningInProgress,
-                          progress: _washController.value,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    vm.cleaningInProgress
-                        ? "Advanced wash simulation: carriage movement, water spray, runoff, and glass shine are active."
-                        : "Standby preview: trigger cleaning to run the animated wash cycle.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.78),
-                      height: 1.35,
-                    ),
                   ),
                 ],
               ),
@@ -159,6 +133,30 @@ class _CleaningTabState extends State<CleaningTab>
                     border: border,
                     onChanged: vm.setForceCleaningReady,
                   ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 250,
+                    child: AnimatedBuilder(
+                      animation: _washController,
+                      builder: (context, _) {
+                        return _SolarPanelCleaningAnimation(
+                          active: vm.cleaningInProgress,
+                          progress: _washController.value,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    vm.cleaningInProgress
+                        ? "Advanced wash simulation: carriage movement, water spray, runoff, and glass shine are active."
+                        : "",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.78),
+                      height: 1.35,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   CommandButtonCard(
                     title: "Start Cleaning Now",
@@ -166,6 +164,11 @@ class _CleaningTabState extends State<CleaningTab>
                     icon: Icons.play_arrow_rounded,
                     border: border,
                     onTap: () {
+                      if (!vm.forceCleaningReady) {
+                        _snack(context, "Enable Force Cleaning Ready first");
+                        return;
+                      }
+
                       vm.startCleaningNow();
                       _snack(context, "Cleaning start simulated");
                     },
@@ -177,6 +180,11 @@ class _CleaningTabState extends State<CleaningTab>
                     icon: Icons.stop_circle_rounded,
                     border: border,
                     onTap: () {
+                      if (!vm.forceCleaningReady) {
+                        _snack(context, "Enable Force Cleaning Ready first");
+                        return;
+                      }
+
                       vm.stopCleaning();
                       _snack(context, "Cleaning stop simulated");
                     },
