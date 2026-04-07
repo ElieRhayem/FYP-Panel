@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -270,159 +271,715 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
     final avgWeek = totalWeek / vm.energyWeekWh.length;
     final highest = vm.energyWeekWh.reduce((a, b) => a > b ? a : b);
     final lowest = vm.energyWeekWh.reduce((a, b) => a < b ? a : b);
-    final dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    final nowLabel = _formatFullDateTime(DateTime.now());
+    final latestValue = vm.energyWeekWh.isNotEmpty ? vm.energyWeekWh.last : 0.0;
+    final energyDateLabels = List.generate(
+      vm.energyWeekWh.length,
+          (index) {
+        final daysAgo = vm.energyWeekWh.length - 1 - index;
+        final date = DateTime.now().subtract(Duration(days: daysAgo));
+        return _formatFullDateTime(date);
+      },
+    );
 
     showDialog(
       context: context,
       builder: (_) {
         return Dialog(
-          backgroundColor: const Color(0xFF0B1220),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: cs.primary.withOpacity(0.15)),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 700, maxHeight: 560),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final useTwoColumns = constraints.maxWidth >= 360;
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 820, maxHeight: 660),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0A1120),
+                  Color(0xFF0D1628),
+                  Color(0xFF0A1221),
+                ],
+              ),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.45),
+                  blurRadius: 32,
+                  offset: const Offset(0, 20),
+                ),
+                BoxShadow(
+                  color: cs.primary.withOpacity(0.10),
+                  blurRadius: 30,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: Stack(
+                children: [
+                  Positioned(
+                    bottom: -120,
+                    left: -80,
+                    child: Container(
+                      width: 280,
+                      height: 280,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFFFC857).withOpacity(0.05),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withOpacity(0.015),
+                            Colors.transparent,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final useTwoColumns = constraints.maxWidth >= 560;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
+                        Widget headerChip({
+                          required IconData icon,
+                          required String text,
+                          required Color color,
+                        }) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
+                            ),
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: cs.primary.withOpacity(0.10),
-                              border: Border.all(color: cs.primary.withOpacity(0.22)),
-                            ),
-                            child: Icon(Icons.bolt_rounded, color: cs.primary),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              "Energy Details",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.4,
+                              borderRadius: BorderRadius.circular(999),
+                              color: Colors.white.withOpacity(0.04),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.08),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: Colors.white.withOpacity(0.75),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Detailed production summary for the current day and the last 7 days.",
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.68),
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (useTwoColumns)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: McMetric(
-                                label: "Energy Today",
-                                value: vm.energyTodayWh.toStringAsFixed(0),
-                                unit: "Wh",
-                                icon: Icons.flash_on_rounded,
-                                accent: cs.primary,
-                                hint: "Current accumulated production",
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: McMetric(
-                                label: "Weekly Average",
-                                value: avgWeek.toStringAsFixed(0),
-                                unit: "Wh",
-                                icon: Icons.analytics_rounded,
-                                accent: const Color(0xFFFFC857),
-                                hint: "Average over last 7 days",
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Column(
-                          children: [
-                            McMetric(
-                              label: "Energy Today",
-                              value: vm.energyTodayWh.toStringAsFixed(0),
-                              unit: "Wh",
-                              icon: Icons.flash_on_rounded,
-                              accent: cs.primary,
-                              hint: "Current accumulated production",
-                            ),
-                            const SizedBox(height: 12),
-                            McMetric(
-                              label: "Weekly Average",
-                              value: avgWeek.toStringAsFixed(0),
-                              unit: "Wh",
-                              icon: Icons.analytics_rounded,
-                              accent: const Color(0xFFFFC857),
-                              hint: "Average over last 7 days",
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          _detailPill("Week Total", "${totalWeek.toStringAsFixed(0)} Wh"),
-                          _detailPill("Best Day", "${highest.toStringAsFixed(0)} Wh"),
-                          _detailPill("Lowest Day", "${lowest.toStringAsFixed(0)} Wh"),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        "Daily Energy Output",
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.90),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Column(
-                        children: List.generate(vm.energyWeekWh.length, (index) {
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              bottom: index == vm.energyWeekWh.length - 1 ? 0 : 8,
-                            ),
-                            child: _energyDayRow(
-                              day: dayLabels[index % dayLabels.length],
-                              value: vm.energyWeekWh[index],
-                              accent: index == vm.energyWeekWh.length - 1
-                                  ? cs.primary
-                                  : const Color(0xFFFFC857),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(icon, size: 14, color: color),
+                                const SizedBox(width: 6),
+                                Text(
+                                  text,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.82),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           );
-                        }),
-                      ),
-                    ],
-                  );
-                },
+                        }
+
+                        Widget summaryCard({
+                          required String eyebrow,
+                          required String value,
+                          required String unit,
+                          required String subtitle,
+                          required IconData icon,
+                          required Color accent,
+                          bool emphasize = false,
+                        }) {
+                          return Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: emphasize
+                                    ? accent.withOpacity(0.26)
+                                    : Colors.white.withOpacity(0.08),
+                              ),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: emphasize
+                                    ? [
+                                  accent.withOpacity(0.16),
+                                  Colors.white.withOpacity(0.03),
+                                ]
+                                    : [
+                                  Colors.white.withOpacity(0.045),
+                                  accent.withOpacity(0.06),
+                                ],
+                              ),
+                              boxShadow: emphasize
+                                  ? [
+                                BoxShadow(
+                                  color: accent.withOpacity(0.14),
+                                  blurRadius: 18,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                                  : null,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: accent.withOpacity(0.14),
+                                        border: Border.all(
+                                          color: accent.withOpacity(0.26),
+                                        ),
+                                      ),
+                                      child: Icon(icon, color: accent, size: 20),
+                                    ),
+                                    const Spacer(),
+                                    if (emphasize)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(999),
+                                          color: accent.withOpacity(0.14),
+                                          border: Border.all(
+                                            color: accent.withOpacity(0.24),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          "LIVE",
+                                          style: TextStyle(
+                                            color: accent,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  eyebrow,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.62),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: value,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w900,
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: "  $unit",
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.60),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  subtitle,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.68),
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        Widget compactStat({
+                          required String label,
+                          required String value,
+                          required IconData icon,
+                          required Color accent,
+                        }) {
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              color: Colors.white.withOpacity(0.04),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.08),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: accent.withOpacity(0.12),
+                                    border: Border.all(
+                                      color: accent.withOpacity(0.22),
+                                    ),
+                                  ),
+                                  child: Icon(icon, size: 17, color: accent),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        label,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.58),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        value,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        Widget energyRow({
+                          required String day,
+                          required double value,
+                          required double maxValue,
+                          required Color accent,
+                          required bool highlight,
+                        }) {
+                          final ratio =
+                          maxValue <= 0 ? 0.0 : (value / maxValue).clamp(0.0, 1.0);
+
+                          return Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: highlight
+                                    ? accent.withOpacity(0.24)
+                                    : Colors.white.withOpacity(0.08),
+                              ),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: highlight
+                                    ? [
+                                  accent.withOpacity(0.13),
+                                  Colors.white.withOpacity(0.03),
+                                ]
+                                    : [
+                                  Colors.white.withOpacity(0.035),
+                                  Colors.white.withOpacity(0.02),
+                                ],
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: accent.withOpacity(0.14),
+                                        border: Border.all(
+                                          color: accent.withOpacity(0.24),
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          day.substring(0, 1),
+                                          style: TextStyle(
+                                            color: accent,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        day,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    if (highlight)
+                                      Container(
+                                        margin: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(999),
+                                          color: accent.withOpacity(0.14),
+                                          border: Border.all(
+                                            color: accent.withOpacity(0.22),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          "TODAY",
+                                          style: TextStyle(
+                                            color: accent,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.7,
+                                          ),
+                                        ),
+                                      ),
+                                    Text(
+                                      "${value.toStringAsFixed(0)} Wh",
+                                      style: TextStyle(
+                                        color: highlight ? accent : Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: LinearProgressIndicator(
+                                    value: ratio,
+                                    minHeight: 9,
+                                    backgroundColor: Colors.white.withOpacity(0.08),
+                                    valueColor: AlwaysStoppedAnimation<Color>(accent),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    "${(ratio * 100).toStringAsFixed(0)}% of weekly peak",
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.50),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.08),
+                                ),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    cs.primary.withOpacity(0.10),
+                                    Colors.white.withOpacity(0.03),
+                                    const Color(0xFFFFC857).withOpacity(0.05),
+                                  ],
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 56,
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: cs.primary.withOpacity(0.14),
+                                      border: Border.all(
+                                        color: cs.primary.withOpacity(0.26),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.bolt_rounded,
+                                      color: cs.primary,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          "Energy Review",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 23,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          "Production summary for today and the current seven-day operating window.",
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.70),
+                                            fontSize: 13,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            headerChip(
+                                              icon: Icons.schedule_rounded,
+                                              text: nowLabel,
+                                              color: Colors.cyanAccent,
+                                            ),
+                                            headerChip(
+                                              icon: Icons.flash_on_rounded,
+                                              text: "${latestValue.toStringAsFixed(0)} Wh latest",
+                                              color: cs.primary,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white.withOpacity(0.78),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            if (useTwoColumns)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: summaryCard(
+                                      eyebrow: "ENERGY TODAY",
+                                      value: vm.energyTodayWh.toStringAsFixed(0),
+                                      unit: "Wh",
+                                      subtitle: "Current accumulated output for the active day.",
+                                      icon: Icons.flash_on_rounded,
+                                      accent: cs.primary,
+                                      emphasize: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: summaryCard(
+                                      eyebrow: "WEEKLY AVERAGE",
+                                      value: avgWeek.toStringAsFixed(0),
+                                      unit: "Wh",
+                                      subtitle: "Average production across the last seven days.",
+                                      icon: Icons.analytics_rounded,
+                                      accent: const Color(0xFFFFC857),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  summaryCard(
+                                    eyebrow: "ENERGY TODAY",
+                                    value: vm.energyTodayWh.toStringAsFixed(0),
+                                    unit: "Wh",
+                                    subtitle: "Current accumulated output for the active day.",
+                                    icon: Icons.flash_on_rounded,
+                                    accent: cs.primary,
+                                    emphasize: true,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  summaryCard(
+                                    eyebrow: "WEEKLY AVERAGE",
+                                    value: avgWeek.toStringAsFixed(0),
+                                    unit: "Wh",
+                                    subtitle: "Average production across the last seven days.",
+                                    icon: Icons.analytics_rounded,
+                                    accent: const Color(0xFFFFC857),
+                                  ),
+                                ],
+                              ),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(22),
+                                color: Colors.black.withOpacity(0.18),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.08),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Executive Summary",
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.90),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  if (useTwoColumns)
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: compactStat(
+                                            label: "Week Total",
+                                            value: "${totalWeek.toStringAsFixed(0)} Wh",
+                                            icon: Icons.calendar_view_week_rounded,
+                                            accent: cs.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: compactStat(
+                                            label: "Best Day",
+                                            value: "${highest.toStringAsFixed(0)} Wh",
+                                            icon: Icons.trending_up_rounded,
+                                            accent: Colors.greenAccent,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: compactStat(
+                                            label: "Lowest Day",
+                                            value: "${lowest.toStringAsFixed(0)} Wh",
+                                            icon: Icons.trending_down_rounded,
+                                            accent: Colors.orangeAccent,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Column(
+                                      children: [
+                                        compactStat(
+                                          label: "Week Total",
+                                          value: "${totalWeek.toStringAsFixed(0)} Wh",
+                                          icon: Icons.calendar_view_week_rounded,
+                                          accent: cs.primary,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        compactStat(
+                                          label: "Best Day",
+                                          value: "${highest.toStringAsFixed(0)} Wh",
+                                          icon: Icons.trending_up_rounded,
+                                          accent: Colors.greenAccent,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        compactStat(
+                                          label: "Lowest Day",
+                                          value: "${lowest.toStringAsFixed(0)} Wh",
+                                          icon: Icons.trending_down_rounded,
+                                          accent: Colors.orangeAccent,
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              "Daily Energy Distribution",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.92),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              "A cleaner operational view of daily production relative to the highest recorded value in the current weekly window.",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.62),
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Column(
+                              children: List.generate(vm.energyWeekWh.length, (index) {
+                                final value = vm.energyWeekWh[index];
+                                final isLatest = index == vm.energyWeekWh.length - 1;
+
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: index == vm.energyWeekWh.length - 1 ? 0 : 10,
+                                  ),
+                                  child: energyRow(
+                                    day: energyDateLabels[index],
+                                    value: value,
+                                    maxValue: highest,
+                                    accent: isLatest
+                                        ? cs.primary
+                                        : const Color(0xFFFFC857),
+                                    highlight: isLatest,
+                                  ),
+                                );
+                              }),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -431,9 +988,27 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
     );
   }
 
+  String _formatFullDateTime(DateTime dt) {
+    return DateFormat('dd MMM yyyy • HH:mm:ss').format(dt);
+  }
+
+  String _lastCleaningFullLabel(DashboardViewModel vm) {
+    for (final entry in vm.cleaningHistory) {
+      if (entry.status == "Completed" || entry.status == "Running") {
+        return _formatFullDateTime(entry.timestamp);
+      }
+    }
+
+    if (vm.cleaningHistory.isNotEmpty) {
+      return _formatFullDateTime(vm.cleaningHistory.first.timestamp);
+    }
+
+    return "No cleaning history available";
+  }
+
   String _lastChangedPositionLabel(DashboardViewModel vm) {
     if (vm.trackingHistory.isEmpty) return "No tracking history available";
-    return vm.trackingHistory.first.timeLabel;
+    return _formatFullDateTime(vm.trackingHistory.first.timestamp);
   }
 
   @override
@@ -786,7 +1361,7 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        vm.lastCleaningDisplayLabel,
+                                        _lastCleaningFullLabel(vm),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 15,

@@ -1,5 +1,6 @@
   import 'dart:ui' as ui;
   import 'dart:math' as math;
+  import 'package:intl/intl.dart';
   import 'package:flutter/material.dart';
   import 'package:provider/provider.dart';
   import 'package:mobile_application/core/widgets/mc_metric.dart';
@@ -201,7 +202,7 @@
                               const SizedBox(height: 6),
                               Text(
                                 vm.trackingHistory.isNotEmpty
-                                    ? "Last update: ${vm.trackingHistory.first.timeLabel}"
+                                    ? "Last update: ${_formatFullDateTime(vm.trackingHistory.first.timestamp)}"
                                     : "No tracking history available yet",
                                 style: TextStyle(
                                   color: Colors.white.withOpacity(0.72),
@@ -259,6 +260,10 @@
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg)),
       );
+    }
+
+    String _formatFullDateTime(DateTime dt) {
+      return DateFormat('dd MMM yyyy • HH:mm:ss').format(dt);
     }
 
     Widget _historyChip({
@@ -460,7 +465,7 @@
                                   ),
                                   const Spacer(),
                                   Text(
-                                    entry.timeLabel,
+                                    _formatFullDateTime(entry.timestamp),
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.62),
                                       fontSize: 12,
@@ -945,12 +950,12 @@
 
       final tiltText = TextPainter(
         text: TextSpan(text: "TILT", style: labelStyle),
-        textDirection: TextDirection.ltr,
+        textDirection: ui.TextDirection.ltr,
       )..layout();
 
       final rollText = TextPainter(
         text: TextSpan(text: "ROLL", style: labelStyle),
-        textDirection: TextDirection.ltr,
+        textDirection: ui.TextDirection.ltr,
       )..layout();
 
       tiltText.paint(canvas, Offset(center.dx + 8, center.dy - 82));

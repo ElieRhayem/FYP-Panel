@@ -22,6 +22,7 @@ class DashboardSensorItem {
 }
 
 class TrackingHistoryEntry {
+  final DateTime timestamp;
   final String timeLabel;
   final String mode;
   final double tilt;
@@ -33,7 +34,8 @@ class TrackingHistoryEntry {
   final double bottomLeft;
   final double bottomRight;
 
-  const TrackingHistoryEntry({
+  TrackingHistoryEntry({
+    required this.timestamp,
     required this.timeLabel,
     required this.mode,
     required this.tilt,
@@ -175,7 +177,8 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   final List<TrackingHistoryEntry> trackingHistory = [
-    const TrackingHistoryEntry(
+    TrackingHistoryEntry(
+      timestamp: DateTime.now(),
       timeLabel: "Now",
       mode: "AUTO",
       tilt: 32,
@@ -187,7 +190,8 @@ class DashboardViewModel extends ChangeNotifier {
       bottomLeft: 64,
       bottomRight: 69,
     ),
-    const TrackingHistoryEntry(
+    TrackingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(seconds: 10)),
       timeLabel: "10 sec ago",
       mode: "AUTO",
       tilt: 31,
@@ -199,7 +203,8 @@ class DashboardViewModel extends ChangeNotifier {
       bottomLeft: 61,
       bottomRight: 68,
     ),
-    const TrackingHistoryEntry(
+    TrackingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(seconds: 20)),
       timeLabel: "20 sec ago",
       mode: "SAFE",
       tilt: 30,
@@ -211,7 +216,8 @@ class DashboardViewModel extends ChangeNotifier {
       bottomLeft: 58,
       bottomRight: 63,
     ),
-    const TrackingHistoryEntry(
+    TrackingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(seconds: 30)),
       timeLabel: "30 sec ago",
       mode: "AUTO",
       tilt: 29,
@@ -223,7 +229,8 @@ class DashboardViewModel extends ChangeNotifier {
       bottomLeft: 57,
       bottomRight: 60,
     ),
-    const TrackingHistoryEntry(
+    TrackingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(seconds: 40)),
       timeLabel: "40 sec ago",
       mode: "MANUAL",
       tilt: 34,
@@ -314,6 +321,7 @@ class DashboardViewModel extends ChangeNotifier {
     trackingHistory.insert(
       0,
       TrackingHistoryEntry(
+        timestamp: DateTime.now(),
         timeLabel: "Now",
         mode: trackerMode,
         tilt: tilt,
@@ -336,6 +344,7 @@ class DashboardViewModel extends ChangeNotifier {
       final secondsAgo = i * 10;
       final old = trackingHistory[i];
       trackingHistory[i] = TrackingHistoryEntry(
+        timestamp: old.timestamp,
         timeLabel: "$secondsAgo sec ago",
         mode: old.mode,
         tilt: old.tilt,
