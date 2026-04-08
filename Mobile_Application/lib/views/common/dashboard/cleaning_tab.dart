@@ -99,6 +99,11 @@ class _CleaningTabState extends State<CleaningTab>
                           accent: cleaningManualActive
                               ? cs.primary
                               : const Color(0xFF7C4DFF),
+                          hint: vm.soilingIndex >= 20
+                              ? "Heavy surface dust detected"
+                              : vm.soilingIndex >= 10
+                              ? "Moderate dust accumulation"
+                              : "Panel surface mostly clean",
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -127,7 +132,7 @@ class _CleaningTabState extends State<CleaningTab>
               child: Column(
                 children: [
                   DashboardToggleRow(
-                    title: "Force Cleaning Ready",
+                    title: "Cleaning Manual Mode",
                     subtitle: "Allow cleaning even if not recommended",
                     value: vm.forceCleaningReady,
                     border: border,
@@ -149,7 +154,7 @@ class _CleaningTabState extends State<CleaningTab>
                   const SizedBox(height: 10),
                   Text(
                     vm.cleaningInProgress
-                        ? "Advanced wash simulation: carriage movement, water spray, runoff, and glass shine are active."
+                        ? ""
                         : "",
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -165,7 +170,7 @@ class _CleaningTabState extends State<CleaningTab>
                     border: border,
                     onTap: () {
                       if (!vm.forceCleaningReady) {
-                        _snack(context, "Enable Force Cleaning Ready first");
+                        _snack(context, "Enable Manual Cleaning first");
                         return;
                       }
 
@@ -181,7 +186,7 @@ class _CleaningTabState extends State<CleaningTab>
                     border: border,
                     onTap: () {
                       if (!vm.forceCleaningReady) {
-                        _snack(context, "Enable Force Cleaning Ready first");
+                        _snack(context, "Enable Manual Cleaning first");
                         return;
                       }
 
@@ -255,16 +260,12 @@ class _CleaningTabState extends State<CleaningTab>
                               runSpacing: 8,
                               children: [
                                 _historyChip(
-                                  icon: Icons.format_list_bulleted_rounded,
-                                  label: "${vm.cleaningHistory.length} entries",
+                                  icon: Icons.visibility_rounded,
+                                  label: "Soiling ${vm.soilingIndex.toStringAsFixed(1)}%",
                                 ),
                                 _historyChip(
-                                  icon: Icons.cleaning_services_rounded,
-                                  label: "${vm.cleaningCycles} cycles",
-                                ),
-                                _historyChip(
-                                  icon: Icons.water_drop_outlined,
-                                  label: "${vm.waterUsageLiters.toStringAsFixed(1)} L total",
+                                  icon: Icons.warning_rounded,
+                                  label: "Loss ${vm.estimatedLoss.toStringAsFixed(1)}%",
                                 ),
                               ],
                             ),
@@ -383,14 +384,6 @@ class _CleaningTabState extends State<CleaningTab>
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "Full activity log for cleaning-related actions, timestamps, losses, and water usage.",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.68),
-                    height: 1.35,
-                  ),
-                ),
                 const SizedBox(height: 16),
                 Expanded(
                   child: history.isEmpty
@@ -432,28 +425,6 @@ class _CleaningTabState extends State<CleaningTab>
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(999),
-                                    color: statusColor.withOpacity(0.12),
-                                    border: Border.all(
-                                      color: statusColor.withOpacity(0.25),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    entry.status.toUpperCase(),
-                                    style: TextStyle(
-                                      color: statusColor,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ),
                                 const Spacer(),
                                 Text(
                                   _formatFullDateTime(entry.timestamp),
@@ -466,9 +437,9 @@ class _CleaningTabState extends State<CleaningTab>
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              entry.action,
-                              style: const TextStyle(
+                            const Text(
+                              "Cleaning snapshot",
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -481,8 +452,7 @@ class _CleaningTabState extends State<CleaningTab>
                               children: [
                                 _detailPill("Soiling", "${entry.soilingIndex.toStringAsFixed(1)}%"),
                                 _detailPill("Loss", "${entry.estimatedLoss.toStringAsFixed(1)}%"),
-                                _detailPill("Water", "${entry.waterUsedLiters.toStringAsFixed(1)} L"),
-                                _detailPill("Source", entry.source),
+                                _detailPill("Mode", entry.source),
                               ],
                             ),
                           ],

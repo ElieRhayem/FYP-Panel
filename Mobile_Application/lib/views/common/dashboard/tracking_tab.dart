@@ -183,7 +183,7 @@
                             ),
                           ),
                           child: Icon(
-                            Icons.track_changes_rounded,
+                            Icons.history_rounded,
                             color: cs.primary,
                           ),
                         ),
@@ -215,11 +215,6 @@
                                 runSpacing: 8,
                                 children: [
                                   _historyChip(
-                                    icon: Icons.format_list_bulleted_rounded,
-                                    label: "${vm.trackingHistory.length} entries",
-                                    color: cs.primary,
-                                  ),
-                                  _historyChip(
                                     icon: Icons.screen_rotation_alt_rounded,
                                     label: "Roll ${vm.roll.toStringAsFixed(0)}°",
                                     color: cs.primary,
@@ -228,11 +223,6 @@
                                     icon: Icons.change_circle_outlined,
                                     label: "Tilt ${vm.tilt.toStringAsFixed(0)}°",
                                     color: const Color(0xFF7C4DFF),
-                                  ),
-                                  _historyChip(
-                                    icon: Icons.wb_sunny_outlined,
-                                    label: "${vm.avgIrradiance.toStringAsFixed(1)}%",
-                                    color: const Color(0xFFFFC857),
                                   ),
                                 ],
                               ),
@@ -389,14 +379,6 @@
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Full activity log for tracking updates, mode changes, orientation values, and irradiance readings.",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.68),
-                      height: 1.35,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   Expanded(
                     child: history.isEmpty
@@ -441,28 +423,6 @@
                             children: [
                               Row(
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(999),
-                                      color: modeColor.withOpacity(0.12),
-                                      border: Border.all(
-                                        color: modeColor.withOpacity(0.25),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      entry.mode.toUpperCase(),
-                                      style: TextStyle(
-                                        color: modeColor,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.8,
-                                      ),
-                                    ),
-                                  ),
                                   const Spacer(),
                                   Text(
                                     _formatFullDateTime(entry.timestamp),
@@ -476,7 +436,7 @@
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                "Orientation and irradiance snapshot",
+                                "Tracking change snapshot",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,
@@ -488,14 +448,15 @@
                                 spacing: 10,
                                 runSpacing: 10,
                                 children: [
+                                  _detailPill("Mode", entry.mode),
                                   _detailPill("Tilt", "${entry.tilt.toStringAsFixed(0)}°"),
                                   _detailPill("Roll", "${entry.roll.toStringAsFixed(0)}°"),
                                   _detailPill("Avg Irradiance", "${entry.avgIrradiance.toStringAsFixed(1)}%"),
                                   _detailPill("Brightest Zone", entry.brightestDirection),
-                                  _detailPill("TL", "${entry.topLeft.toStringAsFixed(0)}%"),
-                                  _detailPill("TR", "${entry.topRight.toStringAsFixed(0)}%"),
-                                  _detailPill("BL", "${entry.bottomLeft.toStringAsFixed(0)}%"),
-                                  _detailPill("BR", "${entry.bottomRight.toStringAsFixed(0)}%"),
+                                  _detailPill("C1", "${entry.topLeft.toStringAsFixed(0)}%"),
+                                  _detailPill("C2", "${entry.topRight.toStringAsFixed(0)}%"),
+                                  _detailPill("C3", "${entry.bottomLeft.toStringAsFixed(0)}%"),
+                                  _detailPill("C4", "${entry.bottomRight.toStringAsFixed(0)}%"),
                                 ],
                               ),
                             ],
@@ -1007,83 +968,25 @@
                   ),
                 ),
               ),
-              const Positioned(
-                top: -2,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    "TOP",
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-              ),
-              const Positioned(
-                bottom: -2,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    "BOTTOM",
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-              ),
-              const Positioned(
-                top: 6,
-                right: 10,
-                child: Text(
-                  "RIGHT",
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-              const Positioned(
-                top: 6,
-                left: 52,
-                child: Text(
-                  "LEFT",
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
               Positioned(
                 left: 18,
                 top: 28,
-                child: _cornerBadge("TL", topLeft),
+                child: _cornerBadge("C1", topLeft),
               ),
               Positioned(
                 right: 18,
                 top: 28,
-                child: _cornerBadge("TR", topRight),
+                child: _cornerBadge("C2", topRight),
               ),
               Positioned(
                 left: 18,
                 bottom: 18,
-                child: _cornerBadge("BL", bottomLeft),
+                child: _cornerBadge("C3", bottomLeft),
               ),
               Positioned(
                 right: 18,
                 bottom: 18,
-                child: _cornerBadge("BR", bottomRight),
+                child: _cornerBadge("C4", bottomRight),
               ),
             ],
           ),

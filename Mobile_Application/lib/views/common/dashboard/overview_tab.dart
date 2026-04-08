@@ -319,18 +319,6 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
               borderRadius: BorderRadius.circular(30),
               child: Stack(
                 children: [
-                  Positioned(
-                    bottom: -120,
-                    left: -80,
-                    child: Container(
-                      width: 280,
-                      height: 280,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFFFC857).withOpacity(0.05),
-                      ),
-                    ),
-                  ),
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(

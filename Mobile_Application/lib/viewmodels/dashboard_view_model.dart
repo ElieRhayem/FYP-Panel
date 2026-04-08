@@ -184,7 +184,7 @@ class DashboardViewModel extends ChangeNotifier {
       tilt: 32,
       roll: 0,
       avgIrradiance: 71.5,
-      brightestDirection: "RIGHT",
+      brightestDirection: "C2",
       topLeft: 72,
       topRight: 81,
       bottomLeft: 64,
@@ -197,7 +197,7 @@ class DashboardViewModel extends ChangeNotifier {
       tilt: 31,
       roll: 0,
       avgIrradiance: 68.5,
-      brightestDirection: "TOP",
+      brightestDirection: "C2",
       topLeft: 70,
       topRight: 75,
       bottomLeft: 61,
@@ -210,7 +210,7 @@ class DashboardViewModel extends ChangeNotifier {
       tilt: 30,
       roll: 0,
       avgIrradiance: 63.0,
-      brightestDirection: "RIGHT",
+      brightestDirection: "C2",
       topLeft: 60,
       topRight: 71,
       bottomLeft: 58,
@@ -223,7 +223,7 @@ class DashboardViewModel extends ChangeNotifier {
       tilt: 29,
       roll: 0,
       avgIrradiance: 61.8,
-      brightestDirection: "TOP",
+      brightestDirection: "C2",
       topLeft: 64,
       topRight: 66,
       bottomLeft: 57,
@@ -236,7 +236,7 @@ class DashboardViewModel extends ChangeNotifier {
       tilt: 34,
       roll: 0,
       avgIrradiance: 73.2,
-      brightestDirection: "LEFT",
+      brightestDirection: "C1",
       topLeft: 78,
       topRight: 71,
       bottomLeft: 74,
@@ -368,7 +368,7 @@ class DashboardViewModel extends ChangeNotifier {
     energyTodayWh += 4.0;
 
     if (panelStowed) {
-      tilt = 0.0;
+      tilt = 34.0;
       roll = 0.0;
     } else {
       tilt = 30 + (now % 5).toDouble();
@@ -533,7 +533,7 @@ class DashboardViewModel extends ChangeNotifier {
   void stowPanel() {
     panelStowed = true;
     trackingManualMode = false;
-    tilt = 0.0;
+    tilt = 34.0;
     roll = 0.0;
     trackerMode = "STOW";
     manualOverridesCount++;
@@ -556,10 +556,10 @@ class DashboardViewModel extends ChangeNotifier {
 
   String get brightestDirection {
     final values = {
-      "TL": ldrTopLeft,
-      "TR": ldrTopRight,
-      "BL": ldrBottomLeft,
-      "BR": ldrBottomRight,
+      "C1": ldrTopLeft,
+      "C2": ldrTopRight,
+      "C3": ldrBottomLeft,
+      "C4": ldrBottomRight,
     };
 
     return values.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
