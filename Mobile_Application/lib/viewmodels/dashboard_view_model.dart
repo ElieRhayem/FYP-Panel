@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 enum SensorHealthState { working, warning, issue }
@@ -968,6 +969,196 @@ class DashboardViewModel extends ChangeNotifier {
 
   int get issueSensors =>
       sensorsStatus.where((s) => s.state == SensorHealthState.issue).length;
+
+  double get trackingEfficiencyGain {
+    final irradianceGain = ((avgIrradiance - 45).clamp(0, 35)) * 0.45;
+
+    final modeBonus = trackerMode == "AUTO"
+        ? 4.0
+        : trackerMode == "MANUAL"
+        ? 2.5
+        : trackerMode == "SAFE"
+        ? 1.0
+        : trackerMode == "STOW"
+        ? 0.5
+        : 0.0;
+
+    return (irradianceGain + modeBonus).clamp(0, 22).toDouble();
+  }
+
+  double get cleaningEfficiencyRecovery {
+    final lossRecovery = estimatedLoss.clamp(0, 10) * 0.90;
+    final cleanlinessBonus = ((20 - soilingIndex).clamp(0, 20)) * 0.25;
+    final cycleBonus = math.min(cleaningCycles.toDouble(), 6) * 0.60;
+    final runningBonus = cleaningInProgress ? 1.5 : 0.0;
+
+    return (lossRecovery + cleanlinessBonus + cycleBonus + runningBonus)
+        .clamp(0, 18)
+        .toDouble();
+  }
+
+  double get coolingEfficiencyRecovery {
+    final thermalDropGain = panelTemperatureDropC.clamp(0, 15) * 0.90;
+
+    final thermalBonus = panelTemperatureC <= coolingTargetMaxC
+        ? 3.0
+        : panelTemperatureC <= coolingMaxSafeC
+        ? 1.5
+        : 0.5;
+
+    final activeBonus = coolingInProgress ? 1.5 : 0.0;
+
+    return (thermalDropGain + thermalBonus + activeBonus)
+        .clamp(0, 17)
+        .toDouble();
+  }
+
+  double get estimatedTotalImprovement =>
+      (trackingEfficiencyGain +
+          cleaningEfficiencyRecovery +
+          coolingEfficiencyRecovery)
+          .clamp(0, 45)
+          .toDouble();
+
+  double get operationalConsumptionEstimate {
+    final trackingCost = trackingManualMode ? 0.35 : 0.15;
+    final cleaningCost = (cleaningCycles * 0.15).clamp(0, 1.2);
+    final coolingCost = coolingInProgress ? 0.80 : 0.35;
+
+    return (trackingCost + cleaningCost + coolingCost).clamp(0, 4.0).toDouble();
+  }
+
+  double get overallPerformanceGain {
+    final rawGain = estimatedTotalImprovement * ((100 - estimatedLoss) / 100);
+    return rawGain.clamp(0, 35).toDouble();
+  }
+
+  double get netEnergyGainEstimate =>
+      (overallPerformanceGain - operationalConsumptionEstimate)
+          .clamp(0, 30)
+          .toDouble();
+
+  double get lossReductionEstimate =>
+      ((trackingEfficiencyGain * 0.22) +
+          (cleaningEfficiencyRecovery * 0.34) +
+          (coolingEfficiencyRecovery * 0.28))
+          .clamp(0, 20)
+          .toDouble();
+
+  double get systemEfficiencyScore {
+    final score = 100 -
+        estimatedLoss +
+        (trackingEfficiencyGain * 0.45) +
+        (cleaningEfficiencyRecovery * 0.40) +
+        (coolingEfficiencyRecovery * 0.38) -
+        (issueSensors * 0.8) -
+        (warningSensors * 0.3);
+
+    return score.clamp(0, 100).toDouble();
+  }
+
+  double get _totalContributionBase {
+    final total =
+        trackingEfficiencyGain + cleaningEfficiencyRecovery + coolingEfficiencyRecovery;
+    return total <= 0 ? 1 : total;
+  }
+
+  double get trackingContributionPercent =>
+      ((trackingEfficiencyGain / _totalContributionBase) * 100)
+          .clamp(0, 100)
+          .toDouble();
+
+  double get cleaningContributionPercent =>
+      ((cleaningEfficiencyRecovery / _totalContributionBase) * 100)
+          .clamp(0, 100)
+          .toDouble();
+
+  double get coolingContributionPercent =>
+      ((coolingEfficiencyRecovery / _totalContributionBase) * 100)
+          .clamp(0, 100)
+          .toDouble();
+
+  String get dominantSubsystem {
+    final values = {
+      "Tracking": trackingEfficiencyGain,
+      "Cleaning": cleaningEfficiencyRecovery,
+      "Cooling": coolingEfficiencyRecovery,
+    };
+
+    return values.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
+  String get performanceHeadline {
+    switch (dominantSubsystem) {
+      case "Tracking":
+        return "Tracking leads current gains.";
+      case "Cleaning":
+        return "Cleaning leads current recovery.";
+      case "Cooling":
+        return "Cooling leads current protection.";
+      default:
+        return "System performance is improving.";
+    }
+  }
+
+  String get performanceDescription {
+    switch (dominantSubsystem) {
+      case "Tracking":
+        return "Best gain comes from panel alignment.";
+      case "Cleaning":
+        return "Best gain comes from loss recovery.";
+      case "Cooling":
+        return "Best gain comes from thermal control.";
+      default:
+        return "Tracking, cleaning and cooling are all contributing.";
+    }
+  }
+
+  List<double> get energyTrendValues => List<double>.from(energyWeekWh);
+
+  List<String> get energyTrendLabels {
+    const labels = ["D1", "D2", "D3", "D4", "D5", "D6", "D7"];
+    if (energyWeekWh.length <= labels.length) {
+      return labels.sublist(0, energyWeekWh.length);
+    }
+    return List.generate(energyWeekWh.length, (index) => "D${index + 1}");
+  }
+
+  List<double> get lossTrendValues {
+    if (cleaningHistory.isEmpty) return [estimatedLoss];
+    return cleaningHistory.reversed
+        .map((entry) => entry.estimatedLoss)
+        .toList();
+  }
+
+  List<String> get lossTrendLabels {
+    if (cleaningHistory.isEmpty) return const ["Now"];
+    return List.generate(cleaningHistory.length, (index) => "L${index + 1}");
+  }
+
+  List<double> get temperatureTrendValues {
+    if (coolingHistory.isEmpty) return [panelTemperatureC];
+    return coolingHistory.reversed
+        .map((entry) => entry.panelTemperature)
+        .toList();
+  }
+
+  List<String> get temperatureTrendLabels {
+    if (coolingHistory.isEmpty) return const ["Now"];
+    return List.generate(coolingHistory.length, (index) => "T${index + 1}");
+  }
+
+  List<double> get trackingTrendValues {
+    if (trackingHistory.isEmpty) return [avgIrradiance];
+    return trackingHistory.reversed
+        .map((entry) => entry.avgIrradiance)
+        .toList();
+  }
+
+  List<String> get trackingTrendLabels {
+    if (trackingHistory.isEmpty) return const ["Now"];
+    return List.generate(trackingHistory.length, (index) => "Q${index + 1}");
+  }
 
   @override
   void dispose() {

@@ -7,6 +7,7 @@ import 'package:mobile_application/views/common/dashboard/tracking_tab.dart';
 import 'package:mobile_application/views/common/dashboard/cleaning_tab.dart';
 import 'package:mobile_application/views/common/dashboard/sensors_status_tab.dart';
 import 'package:mobile_application/views/common/dashboard/cooling_tab.dart';
+import 'package:mobile_application/views/common/dashboard/statistics_tab.dart';
 
 class PanelDashboards extends StatefulWidget {
   const PanelDashboards({super.key});
@@ -77,6 +78,17 @@ class _PanelDashboardsState extends State<PanelDashboards> {
     });
     _pageController.animateToPage(
       3,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _goToStatisticsTab() {
+    setState(() {
+      _currentIndex = 5;
+    });
+    _pageController.animateToPage(
+      5,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -163,6 +175,8 @@ class _PanelDashboardsState extends State<PanelDashboards> {
         return "Cooling";
       case 4:
         return "Sensors";
+      case 5:
+        return "Statistics";
       default:
         return "Panel Control";
     }
@@ -181,6 +195,7 @@ class _PanelDashboardsState extends State<PanelDashboards> {
       const CleaningTab(),
       const CoolingTab(),
       const SensorsStatusTab(),
+      const StatisticsTab(),
     ];
 
     return Scaffold(
@@ -243,6 +258,11 @@ class _PanelDashboardsState extends State<PanelDashboards> {
             icon: Icon(Icons.sensors_outlined),
             selectedIcon: Icon(Icons.sensors),
             label: 'Sensors',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
+            label: 'Statistics',
           ),
         ],
       ),
