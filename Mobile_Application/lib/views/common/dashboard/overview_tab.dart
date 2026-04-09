@@ -17,12 +17,14 @@ class OverviewTab extends StatefulWidget {
   final VoidCallback? onSeeMore;
   final VoidCallback? onSoilingSeeMore;
   final VoidCallback? onTrackingSeeMore;
+  final VoidCallback? onCoolingSeeMore;
 
   const OverviewTab({
     super.key,
     this.onSeeMore,
     this.onSoilingSeeMore,
     this.onTrackingSeeMore,
+    this.onCoolingSeeMore,
   });
 
   @override
@@ -999,6 +1001,11 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
     return _formatFullDateTime(vm.trackingHistory.first.timestamp);
   }
 
+  String _lastCoolingFullLabel(DashboardViewModel vm) {
+    if (vm.coolingHistory.isEmpty) return "No cooling history available";
+    return _formatFullDateTime(vm.coolingHistory.first.timestamp);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -1257,6 +1264,119 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
               ),
             ),
             const SizedBox(height: 14),
+            McPanel(
+              title: "COOLING SNAPSHOT",
+              trailing: InkWell(
+                onTap: widget.onCoolingSeeMore,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    "See more",
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: McMetric(
+                          label: "Mode",
+                          value: vm.coolingMode,
+                          unit: "",
+                          icon: Icons.ac_unit_rounded,
+                          accent: vm.coolingInProgress
+                              ? Colors.cyanAccent
+                              : const Color(0xFFFFC857),
+                          hint: vm.coolingInProgress
+                              ? "Cooling currently active"
+                              : "Current cooling operating mode",
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: McMetric(
+                          label: "Panel Temp",
+                          value: vm.panelTemperatureC.toStringAsFixed(1),
+                          unit: "°C",
+                          icon: Icons.thermostat_rounded,
+                          accent: vm.panelTemperatureC < vm.coolingTargetMinC
+                              ? Colors.lightBlueAccent
+                              : vm.panelTemperatureC <= vm.coolingTargetMaxC
+                              ? Colors.greenAccent
+                              : vm.panelTemperatureC <= vm.coolingMaxSafeC
+                              ? Colors.orangeAccent
+                              : Colors.redAccent,
+                          hint: vm.thermalBandLabel,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.08),
+                      ),
+                      color: Colors.white.withOpacity(0.03),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.cyanAccent.withOpacity(0.10),
+                            border: Border.all(
+                              color: Colors.cyanAccent.withOpacity(0.25),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.history_rounded,
+                            color: Colors.cyanAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Last cooling update",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _lastCoolingFullLabel(vm),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
             LayoutBuilder(
               builder: (context, c) {
                 final twoCols = c.maxWidth > 720;
@@ -1264,7 +1384,7 @@ class _OverviewTabState extends State<OverviewTab> with AutomaticKeepAliveClient
                 final left = Column(
                   children: [
                     McPanel(
-                      title: "SOILING",
+                      title: "CLEANING SNAPSHOT",
                       trailing: InkWell(
                         onTap: widget.onSoilingSeeMore,
                         borderRadius: BorderRadius.circular(8),

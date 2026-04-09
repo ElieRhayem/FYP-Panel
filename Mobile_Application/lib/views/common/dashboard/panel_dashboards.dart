@@ -6,6 +6,7 @@ import 'package:mobile_application/views/common/dashboard/overview_tab.dart';
 import 'package:mobile_application/views/common/dashboard/tracking_tab.dart';
 import 'package:mobile_application/views/common/dashboard/cleaning_tab.dart';
 import 'package:mobile_application/views/common/dashboard/sensors_status_tab.dart';
+import 'package:mobile_application/views/common/dashboard/cooling_tab.dart';
 
 class PanelDashboards extends StatefulWidget {
   const PanelDashboards({super.key});
@@ -39,10 +40,10 @@ class _PanelDashboardsState extends State<PanelDashboards> {
 
   void _goToSensorsTab() {
     setState(() {
-      _currentIndex = 3;
+      _currentIndex = 4;
     });
     _pageController.animateToPage(
-      3,
+      4,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -65,6 +66,17 @@ class _PanelDashboardsState extends State<PanelDashboards> {
     });
     _pageController.animateToPage(
       1,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _goToCoolingTab() {
+    setState(() {
+      _currentIndex = 3;
+    });
+    _pageController.animateToPage(
+      3,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -148,6 +160,8 @@ class _PanelDashboardsState extends State<PanelDashboards> {
       case 2:
         return "Cleaning";
       case 3:
+        return "Cooling";
+      case 4:
         return "Sensors";
       default:
         return "Panel Control";
@@ -161,9 +175,11 @@ class _PanelDashboardsState extends State<PanelDashboards> {
         onSeeMore: _goToSensorsTab,
         onSoilingSeeMore: _goToCleaningTab,
         onTrackingSeeMore: _goToTrackingTab,
+        onCoolingSeeMore: _goToCoolingTab,
       ),
       const TrackingTab(),
       const CleaningTab(),
+      const CoolingTab(),
       const SensorsStatusTab(),
     ];
 
@@ -217,6 +233,11 @@ class _PanelDashboardsState extends State<PanelDashboards> {
             icon: Icon(Icons.cleaning_services_outlined),
             selectedIcon: Icon(Icons.cleaning_services),
             label: 'Cleaning',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.ac_unit_outlined),
+            selectedIcon: Icon(Icons.ac_unit),
+            label: 'Cooling',
           ),
           NavigationDestination(
             icon: Icon(Icons.sensors_outlined),

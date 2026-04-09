@@ -69,6 +69,26 @@ class CleaningHistoryEntry {
   });
 }
 
+class CoolingHistoryEntry {
+  final DateTime timestamp;
+  final String status;
+  final double panelTemperature;
+  final double temperatureDrop;
+  final String pcmState;
+  final String action;
+  final String source;
+
+  const CoolingHistoryEntry({
+    required this.timestamp,
+    required this.status,
+    required this.panelTemperature,
+    required this.temperatureDrop,
+    required this.pcmState,
+    required this.action,
+    required this.source,
+  });
+}
+
 class DashboardViewModel extends ChangeNotifier {
   double powerW = 842.0;
   double estimatedLoss = 4.8;
@@ -91,7 +111,7 @@ class DashboardViewModel extends ChangeNotifier {
   double cornerBottomLeftHeight = 50.0;
   double cornerBottomRightHeight = 50.0;
 
-  bool windSensorOnline = false;
+  bool windSensorOnline = true;
   bool cleaningInProgress = false;
   bool forceCleaningReady = false;
   bool trackingManualMode = false;
@@ -103,6 +123,137 @@ class DashboardViewModel extends ChangeNotifier {
   double waterUsageLiters = 1.2;
   int manualOverridesCount = 2;
   String lastCleaningLabel = "Yesterday";
+
+  String coolingMode = "AUTO";
+  bool coolingManualMode = false;
+  bool coolingInProgress = false;
+
+  double ambientTemperatureC = 24.0;
+  double panelTemperatureDropC = 6.5;
+  double coolingTargetMinC = 15.0;
+  double coolingTargetMaxC = 25.0;
+  double coolingMaxSafeC = 30.0;
+  double pcmTemperatureC = 26.0;
+
+  bool pcmModuleOnline = true;
+  bool pcmTemperatureOnline = true;
+  bool thermalControllerOnline = true;
+
+  bool get coolingRecommended => panelTemperatureC > coolingTargetMaxC;
+
+  String get pcmStateLabel {
+    if (pcmTemperatureC < 24) return "Solid";
+    if (pcmTemperatureC < 29) return "Active";
+    return "Liquid";
+  }
+
+  String get thermalBandLabel {
+    if (panelTemperatureC < coolingTargetMinC) return "Too Cold";
+    if (panelTemperatureC <= coolingTargetMaxC) return "Optimal";
+    if (panelTemperatureC <= coolingMaxSafeC) return "Warm";
+    return "Critical";
+  }
+
+  final List<CoolingHistoryEntry> coolingHistory = [
+    CoolingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(minutes: 12)),
+      status: "Completed",
+      panelTemperature: 24.8,
+      temperatureDrop: 8.7,
+      pcmState: "Transition",
+      action: "Cooling cycle completed successfully",
+      source: "Automatic",
+    ),
+    CoolingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 10)),
+      status: "Recommended",
+      panelTemperature: 31.6,
+      temperatureDrop: 0.0,
+      pcmState: "Liquid",
+      action: "Cooling recommended due to elevated panel temperature",
+      source: "System",
+    ),
+    CoolingHistoryEntry(
+      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 1)),
+      status: "Stopped",
+      panelTemperature: 27.9,
+      temperatureDrop: 5.4,
+      pcmState: "Transition",
+      action: "Cooling cycle stopped by operator",
+      source: "Manual",
+    ),
+  ];
+
+  void _addCoolingHistoryEntry({
+    required String status,
+    required String action,
+    required String source,
+  }) {
+    coolingHistory.insert(
+      0,
+      CoolingHistoryEntry(
+        timestamp: DateTime.now(),
+        status: status,
+        panelTemperature: panelTemperatureC,
+        temperatureDrop: panelTemperatureDropC,
+        pcmState: pcmStateLabel,
+        action: action,
+        source: source,
+      ),
+    );
+
+    if (coolingHistory.length > 20) {
+      coolingHistory.removeLast();
+    }
+  }
+
+  void setCoolingManualMode(bool value) {
+    coolingManualMode = value;
+
+    if (!coolingManualMode && coolingInProgress) {
+      coolingInProgress = false;
+
+      _addCoolingHistoryEntry(
+        status: "Stopped",
+        action: "Cooling cycle stopped because manual cooling was disabled",
+        source: "Manual",
+      );
+    }
+
+    coolingMode = coolingManualMode ? "MANUAL" : "AUTO";
+    manualOverridesCount++;
+    notifyListeners();
+  }
+
+  void startCoolingNow() {
+    if (coolingInProgress) return;
+    coolingInProgress = true;
+    coolingMode = coolingManualMode ? "MANUAL" : "AUTO";
+    manualOverridesCount++;
+
+    _addCoolingHistoryEntry(
+      status: "Running",
+      action: "Cooling cycle started manually",
+      source: "Manual",
+    );
+
+    notifyListeners();
+  }
+
+  void stopCooling() {
+    if (!coolingInProgress) return;
+    coolingInProgress = false;
+    coolingMode = coolingManualMode ? "MANUAL" : "AUTO";
+    manualOverridesCount++;
+
+    _addCoolingHistoryEntry(
+      status: "Stopped",
+      action: "Cooling cycle stopped by operator",
+      source: "Manual",
+    );
+
+    notifyListeners();
+  }
 
   String _formatLastCleaningDate(DateTime dateTime) {
     final now = DateTime.now();
@@ -405,9 +556,24 @@ class DashboardViewModel extends ChangeNotifier {
     waterPumpOnline = !cleaningInProgress || now % 15 != 0;
     waterLevelOnline = now % 16 != 0;
     nozzleValveOnline = !safetyLock;
-    panelTemperatureC = 33 + (now % 9).toDouble();
     voltageV = 18.2 + ((now % 6) * 0.25);
     currentA = 4.2 + ((now % 5) * 0.18);
+
+    ambientTemperatureC = 22 + (now % 8).toDouble();
+
+    if (coolingInProgress) {
+      panelTemperatureC = 21 + (now % 5).toDouble();
+      panelTemperatureDropC = 9 + (now % 4).toDouble();
+      pcmTemperatureC = 26 + (now % 3).toDouble();
+    } else {
+      panelTemperatureC = 27 + (now % 10).toDouble();
+      panelTemperatureDropC = 4 + (now % 3).toDouble();
+      pcmTemperatureC = 24 + (now % 7).toDouble();
+    }
+
+    pcmModuleOnline = now % 11 != 0;
+    pcmTemperatureOnline = now % 13 != 0;
+    thermalControllerOnline = now % 12 != 0;
 
     _pushTrackingHistoryEntry();
     notifyListeners();
@@ -752,6 +918,42 @@ class DashboardViewModel extends ChangeNotifier {
         state: nozzleValveOnline ? SensorHealthState.working : SensorHealthState.warning,
         value: nozzleValveOnline ? "READY" : "LOCKED",
         hint: nozzleValveOnline ? "Spray path available" : "Blocked by safety lock",
+      ),
+      DashboardSensorItem(
+        name: "PCM Module",
+        category: "Cooling",
+        icon: Icons.ac_unit_rounded,
+        state: pcmModuleOnline ? SensorHealthState.working : SensorHealthState.issue,
+        value: pcmStateLabel,
+        hint: pcmModuleOnline
+            ? "Phase-change medium available"
+            : "PCM module not responding",
+      ),
+      DashboardSensorItem(
+        name: "PCM Temperature",
+        category: "Cooling",
+        icon: Icons.device_thermostat_rounded,
+        state: !pcmTemperatureOnline
+            ? SensorHealthState.issue
+            : pcmTemperatureC >= 32
+            ? SensorHealthState.warning
+            : SensorHealthState.working,
+        value: "${pcmTemperatureC.toStringAsFixed(1)} °C",
+        hint: pcmTemperatureOnline
+            ? "PCM thermal reading available"
+            : "PCM temperature unavailable",
+      ),
+      DashboardSensorItem(
+        name: "Thermal Controller",
+        category: "Cooling",
+        icon: Icons.memory_rounded,
+        state: thermalControllerOnline
+            ? SensorHealthState.working
+            : SensorHealthState.issue,
+        value: thermalControllerOnline ? "ONLINE" : "OFFLINE",
+        hint: thermalControllerOnline
+            ? "Cooling decision logic responsive"
+            : "Thermal control feedback lost",
       ),
     ];
   }
