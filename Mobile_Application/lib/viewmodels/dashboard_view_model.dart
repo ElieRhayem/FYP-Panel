@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum SensorHealthState { working, warning, issue }
 
@@ -91,26 +92,76 @@ class CoolingHistoryEntry {
 }
 
 class DashboardViewModel extends ChangeNotifier {
-  double powerW = 842.0;
-  double estimatedLoss = 4.8;
-  double soilingIndex = 12.5;
-  double energyTodayWh = 5230.0;
-  List<double> energyWeekWh = [4200, 5100, 4800, 5600, 5900, 6100, 5230];
+  DashboardViewModel({this.systemId = 'system_001'});
+
+  final String systemId;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _liveStatusSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _sensorsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _trackingHistorySub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _cleaningHistorySub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _coolingHistorySub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _energyHistorySub;
+
+  bool _initialized = false;
+
+  DocumentReference<Map<String, dynamic>> get _systemRef =>
+      _firestore.collection('system').doc(systemId);
+
+  DocumentReference<Map<String, dynamic>> get _liveStatusRef =>
+      _systemRef.collection('live_status').doc('current');
+
+  DocumentReference<Map<String, dynamic>> get _sensorsRef =>
+      _systemRef.collection('sensors').doc('current');
+
+  DocumentReference<Map<String, dynamic>> get _settingsRef =>
+      _systemRef.collection('settings').doc('current');
+
+  CollectionReference<Map<String, dynamic>> get _trackingHistoryRef =>
+      _systemRef.collection('tracking_history');
+
+  CollectionReference<Map<String, dynamic>> get _cleaningHistoryRef =>
+      _systemRef.collection('cleaning_history');
+
+  CollectionReference<Map<String, dynamic>> get _coolingHistoryRef =>
+      _systemRef.collection('cooling_history');
+
+  CollectionReference<Map<String, dynamic>> get _energyHistoryRef =>
+      _systemRef.collection('energy_history');
+
+  Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    _listenToLiveStatus();
+    _listenToSensors();
+    _listenToTrackingHistory();
+    _listenToCleaningHistory();
+    _listenToCoolingHistory();
+    _listenToEnergyHistory();
+  }
+
+  double powerW = 0.0;
+  double estimatedLoss = 0.0;
+  double soilingIndex = 0.0;
+  double energyTodayWh = 0.0;
+  List<double> energyWeekWh = [];
 
   String trackerMode = "AUTO";
   String cleaningMode = "AUTO";
-  double tilt = 32.0;
+  double tilt = 0.0;
   double roll = 0.0;
-  String weatherStatus = "Clear";
-  double ldrTopLeft = 72.0;
-  double ldrTopRight = 81.0;
-  double ldrBottomLeft = 64.0;
-  double ldrBottomRight = 69.0;
+  String weatherStatus = "Unknown";
+  double ldrTopLeft = 0.0;
+  double ldrTopRight = 0.0;
+  double ldrBottomLeft = 0.0;
+  double ldrBottomRight = 0.0;
 
-  double cornerTopLeftHeight = 50.0;
-  double cornerTopRightHeight = 50.0;
-  double cornerBottomLeftHeight = 50.0;
-  double cornerBottomRightHeight = 50.0;
+  double cornerTopLeftHeight = 0.0;
+  double cornerTopRightHeight = 0.0;
+  double cornerBottomLeftHeight = 0.0;
+  double cornerBottomRightHeight = 0.0;
 
   bool windSensorOnline = true;
   bool cleaningInProgress = false;
@@ -119,28 +170,262 @@ class DashboardViewModel extends ChangeNotifier {
   bool safetyLock = false;
   bool trackingSafetyAlert = false;
   bool panelStowed = false;
-  int cleaningCycles = 3;
-  double trackerUptime = 96.0;
-  double waterUsageLiters = 1.2;
-  int manualOverridesCount = 2;
-  String lastCleaningLabel = "Yesterday";
+  int cleaningCycles = 0;
+  double trackerUptime = 0.0;
+  double waterUsageLiters = 0.0;
+  int manualOverridesCount = 0;
+  String lastCleaningLabel = "";
 
   String coolingMode = "AUTO";
   bool coolingManualMode = false;
   bool coolingInProgress = false;
 
-  double ambientTemperatureC = 24.0;
-  double panelTemperatureDropC = 6.5;
+  double ambientTemperatureC = 0.0;
+  double panelTemperatureDropC = 0.0;
   double coolingTargetMinC = 15.0;
   double coolingTargetMaxC = 25.0;
   double coolingMaxSafeC = 30.0;
-  double pcmTemperatureC = 26.0;
+  double pcmTemperatureC = 0.0;
 
   bool pcmModuleOnline = true;
   bool pcmTemperatureOnline = true;
   bool thermalControllerOnline = true;
 
   bool get coolingRecommended => panelTemperatureC > coolingTargetMaxC;
+
+  double _asDouble(dynamic value, {double fallback = 0.0}) {
+    if (value is num) return value.toDouble();
+    return fallback;
+  }
+
+  int _asInt(dynamic value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return fallback;
+  }
+
+  bool _asBool(dynamic value, {bool fallback = false}) {
+    if (value is bool) return value;
+    return fallback;
+  }
+
+  String _asString(dynamic value, [String fallback = ""]) {
+    if (value is String) return value;
+    return fallback;
+  }
+
+  List<double> _asDoubleList(dynamic value) {
+    if (value is List) {
+      return value.map((e) => _asDouble(e)).toList();
+    }
+    return [];
+  }
+
+  Future<void> _updateLiveStatus(Map<String, dynamic> data) async {
+    await _liveStatusRef.set({
+      ...data,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  void _listenToLiveStatus() {
+    _liveStatusSub = _liveStatusRef.snapshots().listen((snapshot) {
+      print("LIVE STATUS PATH: ${_liveStatusRef.path}");
+      print("LIVE STATUS EXISTS: ${snapshot.exists}");
+      print("LIVE STATUS DATA: ${snapshot.data()}");
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      powerW = _asDouble(data['powerW']);
+      estimatedLoss = _asDouble(data['estimatedLoss']);
+      soilingIndex = _asDouble(data['soilingIndex']);
+      energyTodayWh = _asDouble(data['energyTodayWh']);
+      energyWeekWh = _asDoubleList(data['energyWeekWh']);
+
+      trackerMode = _asString(data['trackerMode'], 'AUTO');
+      cleaningMode = _asString(data['cleaningMode'], 'AUTO');
+      coolingMode = _asString(data['coolingMode'], 'AUTO');
+
+      tilt = _asDouble(data['tilt']);
+      roll = _asDouble(data['roll']);
+      weatherStatus = _asString(data['weatherStatus'], 'Unknown');
+
+      ldrTopLeft = _asDouble(data['ldrTopLeft']);
+      ldrTopRight = _asDouble(data['ldrTopRight']);
+      ldrBottomLeft = _asDouble(data['ldrBottomLeft']);
+      ldrBottomRight = _asDouble(data['ldrBottomRight']);
+
+      cornerTopLeftHeight = _asDouble(data['cornerTopLeftHeight']);
+      cornerTopRightHeight = _asDouble(data['cornerTopRightHeight']);
+      cornerBottomLeftHeight = _asDouble(data['cornerBottomLeftHeight']);
+      cornerBottomRightHeight = _asDouble(data['cornerBottomRightHeight']);
+
+      panelStowed = _asBool(data['panelStowed']);
+      trackingManualMode = _asBool(data['trackingManualMode']);
+      coolingManualMode = _asBool(data['coolingManualMode']);
+      forceCleaningReady = _asBool(data['forceCleaningReady']);
+      safetyLock = _asBool(data['safetyLock']);
+      trackingSafetyAlert = _asBool(data['trackingSafetyAlert']);
+
+      cleaningInProgress = _asBool(data['cleaningInProgress']);
+      coolingInProgress = _asBool(data['coolingInProgress']);
+
+      cleaningCycles = _asInt(data['cleaningCycles']);
+      trackerUptime = _asDouble(data['trackerUptime']);
+      waterUsageLiters = _asDouble(data['waterUsageLiters']);
+      manualOverridesCount = _asInt(data['manualOverridesCount']);
+      lastCleaningLabel = _asString(data['lastCleaningLabel'], '');
+
+      ambientTemperatureC = _asDouble(data['ambientTemperatureC']);
+      panelTemperatureC = _asDouble(data['panelTemperatureC']);
+      panelTemperatureDropC = _asDouble(data['panelTemperatureDropC']);
+      pcmTemperatureC = _asDouble(data['pcmTemperatureC']);
+
+      coolingTargetMinC = _asDouble(data['coolingTargetMinC'], fallback: 15.0);
+      coolingTargetMaxC = _asDouble(data['coolingTargetMaxC'], fallback: 25.0);
+      coolingMaxSafeC = _asDouble(data['coolingMaxSafeC'], fallback: 30.0);
+
+      notifyListeners();
+    });
+  }
+
+  void _listenToSensors() {
+    _sensorsSub = _sensorsRef.snapshots().listen((snapshot) {
+      print("SENSORS PATH: ${_sensorsRef.path}");
+      print("SENSORS EXISTS: ${snapshot.exists}");
+      print("SENSORS DATA: ${snapshot.data()}");
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      sunSensorOnline = _asBool(data['sunSensorOnline']);
+      windSensorOnline = _asBool(data['windSensorOnline']);
+      gyroOnline = _asBool(data['gyroOnline']);
+      motorDriverOnline = _asBool(data['motorDriverOnline']);
+      cameraOnline = _asBool(data['cameraOnline']);
+      voltageSensorOnline = _asBool(data['voltageSensorOnline']);
+      currentSensorOnline = _asBool(data['currentSensorOnline']);
+      temperatureSensorOnline = _asBool(data['temperatureSensorOnline']);
+      waterPumpOnline = _asBool(data['waterPumpOnline']);
+      waterLevelOnline = _asBool(data['waterLevelOnline']);
+      nozzleValveOnline = _asBool(data['nozzleValveOnline']);
+      pcmModuleOnline = _asBool(data['pcmModuleOnline']);
+      pcmTemperatureOnline = _asBool(data['pcmTemperatureOnline']);
+      thermalControllerOnline = _asBool(data['thermalControllerOnline']);
+
+      voltageV = _asDouble(data['voltageV']);
+      currentA = _asDouble(data['currentA']);
+      panelTemperatureC = _asDouble(data['panelTemperatureC'], fallback: panelTemperatureC);
+
+      notifyListeners();
+    });
+  }
+
+  void _listenToTrackingHistory() {
+    _trackingHistorySub = _trackingHistoryRef
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots()
+        .listen((snapshot) {
+      print("TRACKING HISTORY COUNT: ${snapshot.docs.length}");
+
+      trackingHistory
+        ..clear()
+        ..addAll(snapshot.docs.map((doc) {
+          final d = doc.data();
+          final ts = d['timestamp'] as Timestamp?;
+          return TrackingHistoryEntry(
+            timestamp: ts?.toDate() ?? DateTime.now(),
+            timeLabel: "",
+            mode: _asString(d['mode'], 'AUTO'),
+            tilt: _asDouble(d['tilt']),
+            roll: _asDouble(d['roll']),
+            avgIrradiance: _asDouble(d['avgIrradiance']),
+            brightestDirection: _asString(d['brightestDirection'], 'C1'),
+            topLeft: _asDouble(d['topLeft']),
+            topRight: _asDouble(d['topRight']),
+            bottomLeft: _asDouble(d['bottomLeft']),
+            bottomRight: _asDouble(d['bottomRight']),
+          );
+        }));
+
+      notifyListeners();
+    });
+  }
+
+  void _listenToCleaningHistory() {
+    _cleaningHistorySub = _cleaningHistoryRef
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots()
+        .listen((snapshot) {
+      print("CLEANING HISTORY COUNT: ${snapshot.docs.length}");
+
+      cleaningHistory
+        ..clear()
+        ..addAll(snapshot.docs.map((doc) {
+          final d = doc.data();
+          final ts = d['timestamp'] as Timestamp?;
+          return CleaningHistoryEntry(
+            timestamp: ts?.toDate() ?? DateTime.now(),
+            status: _asString(d['status'], 'Unknown'),
+            soilingIndex: _asDouble(d['soilingIndex']),
+            estimatedLoss: _asDouble(d['estimatedLoss']),
+            action: _asString(d['action'], ''),
+            waterUsedLiters: _asDouble(d['waterUsedLiters']),
+            source: _asString(d['source'], ''),
+          );
+        }));
+
+      notifyListeners();
+    });
+  }
+
+  void _listenToCoolingHistory() {
+    _coolingHistorySub = _coolingHistoryRef
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots()
+        .listen((snapshot) {
+      print("COOLING HISTORY COUNT: ${snapshot.docs.length}");
+
+      coolingHistory
+        ..clear()
+        ..addAll(snapshot.docs.map((doc) {
+          final d = doc.data();
+          final ts = d['timestamp'] as Timestamp?;
+          return CoolingHistoryEntry(
+            timestamp: ts?.toDate() ?? DateTime.now(),
+            status: _asString(d['status'], 'Unknown'),
+            panelTemperature: _asDouble(d['panelTemperature']),
+            temperatureDrop: _asDouble(d['temperatureDrop']),
+            pcmState: _asString(d['pcmState'], ''),
+            action: _asString(d['action'], ''),
+            source: _asString(d['source'], ''),
+          );
+        }));
+
+      notifyListeners();
+    });
+  }
+
+  void _listenToEnergyHistory() {
+    _energyHistorySub = _energyHistoryRef
+        .orderBy('date', descending: true)
+        .limit(7)
+        .snapshots()
+        .listen((snapshot) {
+      print("ENERGY HISTORY COUNT: ${snapshot.docs.length}");
+
+      final docs = snapshot.docs.toList().reversed.toList();
+      energyWeekWh = docs
+          .map((doc) => _asDouble(doc.data()['energyGeneratedWh']))
+          .toList();
+
+      notifyListeners();
+    });
+  }
 
   String get pcmStateLabel {
     if (pcmTemperatureC < 24) return "Solid";
@@ -155,105 +440,73 @@ class DashboardViewModel extends ChangeNotifier {
     return "Critical";
   }
 
-  final List<CoolingHistoryEntry> coolingHistory = [
-    CoolingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(minutes: 12)),
-      status: "Completed",
-      panelTemperature: 24.8,
-      temperatureDrop: 8.7,
-      pcmState: "Transition",
-      action: "Cooling cycle completed successfully",
-      source: "Automatic",
-    ),
-    CoolingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 10)),
-      status: "Recommended",
-      panelTemperature: 31.6,
-      temperatureDrop: 0.0,
-      pcmState: "Liquid",
-      action: "Cooling recommended due to elevated panel temperature",
-      source: "System",
-    ),
-    CoolingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 1)),
-      status: "Stopped",
-      panelTemperature: 27.9,
-      temperatureDrop: 5.4,
-      pcmState: "Transition",
-      action: "Cooling cycle stopped by operator",
-      source: "Manual",
-    ),
-  ];
+  final List<CoolingHistoryEntry> coolingHistory = [];
 
-  void _addCoolingHistoryEntry({
-    required String status,
-    required String action,
-    required String source,
-  }) {
-    coolingHistory.insert(
-      0,
-      CoolingHistoryEntry(
-        timestamp: DateTime.now(),
-        status: status,
-        panelTemperature: panelTemperatureC,
-        temperatureDrop: panelTemperatureDropC,
-        pcmState: pcmStateLabel,
-        action: action,
-        source: source,
-      ),
-    );
+  Future<void> setCoolingManualMode(bool value) async {
+    await _updateLiveStatus({
+      'coolingManualMode': value,
+      'coolingMode': value ? 'MANUAL' : 'AUTO',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
 
-    if (coolingHistory.length > 20) {
-      coolingHistory.removeLast();
+    if (!value && coolingInProgress) {
+      await _updateLiveStatus({
+        'coolingInProgress': false,
+      });
+
+      await _coolingHistoryRef.add({
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'Stopped',
+        'panelTemperature': panelTemperatureC,
+        'temperatureDrop': panelTemperatureDropC,
+        'pcmState': pcmStateLabel,
+        'action': 'Cooling cycle stopped because manual cooling was disabled',
+        'source': 'Manual',
+        'coolingMode': 'AUTO',
+      });
     }
   }
 
-  void setCoolingManualMode(bool value) {
-    coolingManualMode = value;
-
-    if (!coolingManualMode && coolingInProgress) {
-      coolingInProgress = false;
-
-      _addCoolingHistoryEntry(
-        status: "Stopped",
-        action: "Cooling cycle stopped because manual cooling was disabled",
-        source: "Manual",
-      );
-    }
-
-    coolingMode = coolingManualMode ? "MANUAL" : "AUTO";
-    manualOverridesCount++;
-    notifyListeners();
-  }
-
-  void startCoolingNow() {
+  Future<void> startCoolingNow() async {
     if (coolingInProgress) return;
-    coolingInProgress = true;
-    coolingMode = coolingManualMode ? "MANUAL" : "AUTO";
-    manualOverridesCount++;
 
-    _addCoolingHistoryEntry(
-      status: "Running",
-      action: "Cooling cycle started manually",
-      source: "Manual",
-    );
+    await _updateLiveStatus({
+      'coolingInProgress': true,
+      'coolingMode': coolingManualMode ? 'MANUAL' : 'AUTO',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
 
-    notifyListeners();
+    await _coolingHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'status': 'Running',
+      'panelTemperature': panelTemperatureC,
+      'temperatureDrop': panelTemperatureDropC,
+      'pcmState': pcmStateLabel,
+      'action': 'Cooling cycle started manually',
+      'source': 'Manual',
+      'coolingMode': coolingManualMode ? 'MANUAL' : 'AUTO',
+    });
   }
 
-  void stopCooling() {
+  Future<void> stopCooling() async {
     if (!coolingInProgress) return;
-    coolingInProgress = false;
-    coolingMode = coolingManualMode ? "MANUAL" : "AUTO";
-    manualOverridesCount++;
 
-    _addCoolingHistoryEntry(
-      status: "Stopped",
-      action: "Cooling cycle stopped by operator",
-      source: "Manual",
-    );
+    await _updateLiveStatus({
+      'coolingInProgress': false,
+      'coolingMode': coolingManualMode ? 'MANUAL' : 'AUTO',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
 
-    notifyListeners();
+    await _coolingHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'status': 'Stopped',
+      'panelTemperature': panelTemperatureC,
+      'temperatureDrop': panelTemperatureDropC,
+      'pcmState': pcmStateLabel,
+      'action': 'Cooling cycle stopped by operator',
+      'source': 'Manual',
+      'coolingMode': coolingManualMode ? 'MANUAL' : 'AUTO',
+    });
   }
 
   String _formatLastCleaningDate(DateTime dateTime) {
@@ -304,136 +557,9 @@ class DashboardViewModel extends ChangeNotifier {
     return _formatLastCleaningDate(latestCleaningEntry.timestamp);
   }
 
-  void _addCleaningHistoryEntry({
-    required String status,
-    required String action,
-    required double waterUsedLiters,
-    required String source,
-  }) {
-    cleaningHistory.insert(
-      0,
-      CleaningHistoryEntry(
-        timestamp: DateTime.now(),
-        status: status,
-        soilingIndex: soilingIndex,
-        estimatedLoss: estimatedLoss,
-        action: action,
-        waterUsedLiters: waterUsedLiters,
-        source: source,
-      ),
-    );
+  final List<TrackingHistoryEntry> trackingHistory = [];
 
-    if (cleaningHistory.length > 20) {
-      cleaningHistory.removeLast();
-    }
-  }
-
-  final List<TrackingHistoryEntry> trackingHistory = [
-    TrackingHistoryEntry(
-      timestamp: DateTime.now(),
-      timeLabel: "Now",
-      mode: "AUTO",
-      tilt: 32,
-      roll: 0,
-      avgIrradiance: 71.5,
-      brightestDirection: "C2",
-      topLeft: 72,
-      topRight: 81,
-      bottomLeft: 64,
-      bottomRight: 69,
-    ),
-    TrackingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(seconds: 10)),
-      timeLabel: "10 sec ago",
-      mode: "AUTO",
-      tilt: 31,
-      roll: 0,
-      avgIrradiance: 68.5,
-      brightestDirection: "C2",
-      topLeft: 70,
-      topRight: 75,
-      bottomLeft: 61,
-      bottomRight: 68,
-    ),
-    TrackingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(seconds: 20)),
-      timeLabel: "20 sec ago",
-      mode: "SAFE",
-      tilt: 30,
-      roll: 0,
-      avgIrradiance: 63.0,
-      brightestDirection: "C2",
-      topLeft: 60,
-      topRight: 71,
-      bottomLeft: 58,
-      bottomRight: 63,
-    ),
-    TrackingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(seconds: 30)),
-      timeLabel: "30 sec ago",
-      mode: "AUTO",
-      tilt: 29,
-      roll: 0,
-      avgIrradiance: 61.8,
-      brightestDirection: "C2",
-      topLeft: 64,
-      topRight: 66,
-      bottomLeft: 57,
-      bottomRight: 60,
-    ),
-    TrackingHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(seconds: 40)),
-      timeLabel: "40 sec ago",
-      mode: "MANUAL",
-      tilt: 34,
-      roll: 0,
-      avgIrradiance: 73.2,
-      brightestDirection: "C1",
-      topLeft: 78,
-      topRight: 71,
-      bottomLeft: 74,
-      bottomRight: 70,
-    ),
-  ];
-
-  final List<CleaningHistoryEntry> cleaningHistory = [
-    CleaningHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-      status: "Completed",
-      soilingIndex: 18.4,
-      estimatedLoss: 6.1,
-      action: "Manual cleaning cycle completed",
-      waterUsedLiters: 0.2,
-      source: "Manual",
-    ),
-    CleaningHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(hours: 3, minutes: 20)),
-      status: "Recommended",
-      soilingIndex: 16.8,
-      estimatedLoss: 5.3,
-      action: "Cleaning recommended but not started",
-      waterUsedLiters: 0.0,
-      source: "System",
-    ),
-    CleaningHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
-      status: "Completed",
-      soilingIndex: 21.2,
-      estimatedLoss: 7.4,
-      action: "Automatic cleaning cycle completed",
-      waterUsedLiters: 0.3,
-      source: "Automatic",
-    ),
-    CleaningHistoryEntry(
-      timestamp: DateTime.now().subtract(const Duration(days: 2, hours: 6)),
-      status: "Stopped",
-      soilingIndex: 14.6,
-      estimatedLoss: 4.9,
-      action: "Cleaning cycle stopped by operator",
-      waterUsedLiters: 0.1,
-      source: "Manual",
-    ),
-  ];
+  final List<CleaningHistoryEntry> cleaningHistory = [];
 
   // Added only for the Sensors Status tab mock UI
   bool sunSensorOnline = true;
@@ -447,18 +573,9 @@ class DashboardViewModel extends ChangeNotifier {
   bool waterLevelOnline = true;
   bool nozzleValveOnline = true;
 
-  double panelTemperatureC = 34.5;
-  double voltageV = 18.7;
-  double currentA = 4.6;
-
-  Timer? _timer;
-
-  void startMockStream() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
-      _tickMockData();
-    });
-  }
+  double panelTemperatureC = 0.0;
+  double voltageV = 0.0;
+  double currentA = 0.0;
 
   bool get canManualCornerControl =>
       trackingManualMode && !safetyLock && !trackingSafetyAlert;
@@ -467,117 +584,6 @@ class DashboardViewModel extends ChangeNotifier {
     if (!trackingManualMode) return "Enable manual mode to adjust panel corners";
     if (safetyLock) return "Safety lock enabled: corner movement blocked";
     return "Tap a corner to raise or lower its height";
-  }
-
-  void _pushTrackingHistoryEntry() {
-    trackingHistory.insert(
-      0,
-      TrackingHistoryEntry(
-        timestamp: DateTime.now(),
-        timeLabel: "Now",
-        mode: trackerMode,
-        tilt: tilt,
-        roll: roll,
-        avgIrradiance: avgIrradiance,
-        brightestDirection: brightestDirection,
-        topLeft: ldrTopLeft,
-        topRight: ldrTopRight,
-        bottomLeft: ldrBottomLeft,
-        bottomRight: ldrBottomRight,
-      ),
-    );
-
-    if (trackingHistory.length > 12) {
-      trackingHistory.removeLast();
-    }
-
-    for (int i = 0; i < trackingHistory.length; i++) {
-      if (i == 0) continue;
-      final secondsAgo = i * 10;
-      final old = trackingHistory[i];
-      trackingHistory[i] = TrackingHistoryEntry(
-        timestamp: old.timestamp,
-        timeLabel: "$secondsAgo sec ago",
-        mode: old.mode,
-        tilt: old.tilt,
-        roll: old.roll,
-        avgIrradiance: old.avgIrradiance,
-        brightestDirection: old.brightestDirection,
-        topLeft: old.topLeft,
-        topRight: old.topRight,
-        bottomLeft: old.bottomLeft,
-        bottomRight: old.bottomRight,
-      );
-    }
-  }
-
-  void _tickMockData() {
-    final now = DateTime.now().second;
-
-    powerW = 820 + (now % 9) * 12.0;
-    estimatedLoss = 3.5 + (now % 6) * 0.6;
-    soilingIndex = 10 + (now % 8) * 0.9;
-    energyTodayWh += 4.0;
-
-    if (panelStowed) {
-      tilt = 34.0;
-      roll = 0.0;
-    } else {
-      tilt = 30 + (now % 5).toDouble();
-    }
-
-    weatherStatus = (now % 2 == 0) ? "Clear" : "Partly Cloudy";
-    windSensorOnline = now % 4 != 0;
-
-    ldrTopLeft = 52 + ((now + 3) % 24).toDouble();
-    ldrTopRight = 52 + ((now + 9) % 24).toDouble();
-    ldrBottomLeft = 52 + ((now + 15) % 24).toDouble();
-    ldrBottomRight = 52 + ((now + 21) % 24).toDouble();
-
-    trackingSafetyAlert = !windSensorOnline || safetyLock;
-
-    if (panelStowed) {
-      trackerMode = "STOW";
-    } else if (trackingSafetyAlert) {
-      trackerMode = "SAFE";
-    } else if (trackingManualMode) {
-      trackerMode = "MANUAL";
-    } else {
-      trackerMode = "AUTO";
-    }
-
-    // Mock sensor values/statuses for Sensors Status tab
-    sunSensorOnline = now % 11 != 0;
-    gyroOnline = now % 13 != 0;
-    motorDriverOnline = now % 10 != 0;
-    cameraOnline = now % 9 != 0;
-    voltageSensorOnline = now % 12 != 0;
-    currentSensorOnline = now % 14 != 0;
-    temperatureSensorOnline = true;
-    waterPumpOnline = !cleaningInProgress || now % 15 != 0;
-    waterLevelOnline = now % 16 != 0;
-    nozzleValveOnline = !safetyLock;
-    voltageV = 18.2 + ((now % 6) * 0.25);
-    currentA = 4.2 + ((now % 5) * 0.18);
-
-    ambientTemperatureC = 22 + (now % 8).toDouble();
-
-    if (coolingInProgress) {
-      panelTemperatureC = 21 + (now % 5).toDouble();
-      panelTemperatureDropC = 9 + (now % 4).toDouble();
-      pcmTemperatureC = 26 + (now % 3).toDouble();
-    } else {
-      panelTemperatureC = 27 + (now % 10).toDouble();
-      panelTemperatureDropC = 4 + (now % 3).toDouble();
-      pcmTemperatureC = 24 + (now % 7).toDouble();
-    }
-
-    pcmModuleOnline = now % 11 != 0;
-    pcmTemperatureOnline = now % 13 != 0;
-    thermalControllerOnline = now % 12 != 0;
-
-    _pushTrackingHistoryEntry();
-    notifyListeners();
   }
 
   double get overallHealth {
@@ -604,118 +610,201 @@ class DashboardViewModel extends ChangeNotifier {
   String get cleaningAction =>
       cleaningRecommended ? "Start cleaning cycle" : "Do nothing";
 
-  void setTrackingManualMode(bool value) {
-    trackingManualMode = value;
-    trackingSafetyAlert = !windSensorOnline || safetyLock;
+  Future<void> setTrackingManualMode(bool value) async {
+    final newTrackingSafetyAlert = !windSensorOnline || safetyLock;
+    final newTrackerMode = value
+        ? (newTrackingSafetyAlert ? "SAFE" : "MANUAL")
+        : (panelStowed ? "STOW" : (newTrackingSafetyAlert ? "SAFE" : "AUTO"));
 
-    if (trackingManualMode) {
-      panelStowed = false;
-      trackerMode = trackingSafetyAlert ? "SAFE" : "MANUAL";
-      manualOverridesCount++;
-    } else {
-      trackerMode = panelStowed
-          ? "STOW"
-          : (trackingSafetyAlert ? "SAFE" : "AUTO");
-    }
-
-    notifyListeners();
+    await _updateLiveStatus({
+      'trackingManualMode': value,
+      'panelStowed': value ? false : panelStowed,
+      'trackingSafetyAlert': newTrackingSafetyAlert,
+      'trackerMode': newTrackerMode,
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void setSafetyLock(bool value) {
-    safetyLock = value;
-    trackingSafetyAlert = !windSensorOnline || safetyLock;
+  Future<void> applyManualOrientation({
+    required double newTilt,
+    required double newRoll,
+  }) async {
+    await _updateLiveStatus({
+      'tilt': newTilt,
+      'roll': newRoll,
+      'trackingManualMode': false,
+      'panelStowed': false,
+      'trackerMode': trackingSafetyAlert ? 'SAFE' : 'AUTO',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
 
+    await _trackingHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'mode': 'MANUAL',
+      'tilt': newTilt,
+      'roll': newRoll,
+      'avgIrradiance': avgIrradiance,
+      'brightestDirection': brightestDirection,
+      'topLeft': ldrTopLeft,
+      'topRight': ldrTopRight,
+      'bottomLeft': ldrBottomLeft,
+      'bottomRight': ldrBottomRight,
+      'weatherStatus': weatherStatus,
+      'trackerMode': 'MANUAL',
+    });
+  }
+
+  Future<void> setSafetyLock(bool value) async {
+    final newTrackingSafetyAlert = !windSensorOnline || value;
+
+    String newTrackerMode;
     if (panelStowed) {
-      trackerMode = "STOW";
-    } else if (trackingSafetyAlert) {
-      trackerMode = "SAFE";
+      newTrackerMode = "STOW";
+    } else if (newTrackingSafetyAlert) {
+      newTrackerMode = "SAFE";
     } else if (trackingManualMode) {
-      trackerMode = "MANUAL";
+      newTrackerMode = "MANUAL";
     } else {
-      trackerMode = "AUTO";
+      newTrackerMode = "AUTO";
     }
 
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'safetyLock': value,
+      'trackingSafetyAlert': newTrackingSafetyAlert,
+      'trackerMode': newTrackerMode,
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void setForceCleaningReady(bool value) {
-    forceCleaningReady = value;
+  Future<void> setForceCleaningReady(bool value) async {
+    final newCleaningMode = value ? 'MANUAL' : 'AUTO';
 
-    if (!forceCleaningReady && cleaningInProgress) {
-      cleaningInProgress = false;
-      cleaningMode = "AUTO";
-      lastCleaningLabel = "Just now";
+    await _updateLiveStatus({
+      'forceCleaningReady': value,
+      'cleaningMode': newCleaningMode,
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
 
-      _addCleaningHistoryEntry(
-        status: "Stopped",
-        action: "Cleaning cycle stopped because force cleaning was disabled",
-        waterUsedLiters: 0.0,
-        source: "Manual",
-      );
-    } else {
-      cleaningMode = forceCleaningReady ? "MANUAL" : "AUTO";
+    if (!value && cleaningInProgress) {
+      await _updateLiveStatus({
+        'cleaningInProgress': false,
+        'lastCleaningLabel': 'Just now',
+      });
+
+      await _cleaningHistoryRef.add({
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'Stopped',
+        'soilingIndex': soilingIndex,
+        'estimatedLoss': estimatedLoss,
+        'action': 'Cleaning cycle stopped because force cleaning was disabled',
+        'waterUsedLiters': 0.0,
+        'source': 'Manual',
+        'cleaningMode': 'AUTO',
+        'manualOverride': true,
+      });
     }
-
-    manualOverridesCount++;
-    notifyListeners();
   }
 
-  void startCleaningNow() {
+  Future<void> startCleaningNow() async {
     if (cleaningInProgress) return;
-    cleaningInProgress = true;
-    cleaningMode = "MANUAL";
-    cleaningCycles++;
-    manualOverridesCount++;
-    waterUsageLiters += 0.2;
-    lastCleaningLabel = "Running now";
 
-    _addCleaningHistoryEntry(
-      status: "Running",
-      action: "Cleaning cycle started manually",
-      waterUsedLiters: 0.2,
-      source: "Manual",
-    );
+    await _updateLiveStatus({
+      'cleaningInProgress': true,
+      'cleaningMode': 'MANUAL',
+      'cleaningCycles': cleaningCycles + 1,
+      'manualOverridesCount': manualOverridesCount + 1,
+      'waterUsageLiters': waterUsageLiters + 0.2,
+      'lastCleaningLabel': 'Running now',
+    });
 
-    notifyListeners();
+    await _cleaningHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'status': 'Running',
+      'soilingIndex': soilingIndex,
+      'estimatedLoss': estimatedLoss,
+      'action': 'Cleaning cycle started manually',
+      'waterUsedLiters': 0.2,
+      'source': 'Manual',
+      'cleaningMode': 'MANUAL',
+      'manualOverride': true,
+    });
   }
 
-  void stopCleaning() {
+  Future<void> stopCleaning() async {
     if (!cleaningInProgress) return;
-    cleaningInProgress = false;
-    cleaningMode = forceCleaningReady ? "MANUAL" : "AUTO";
-    manualOverridesCount++;
-    lastCleaningLabel = "Just now";
 
-    _addCleaningHistoryEntry(
-      status: "Stopped",
-      action: "Cleaning cycle stopped by operator",
-      waterUsedLiters: 0.0,
-      source: "Manual",
-    );
+    await _updateLiveStatus({
+      'cleaningInProgress': false,
+      'cleaningMode': forceCleaningReady ? 'MANUAL' : 'AUTO',
+      'manualOverridesCount': manualOverridesCount + 1,
+      'lastCleaningLabel': 'Just now',
+    });
 
-    notifyListeners();
+    await _cleaningHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'status': 'Stopped',
+      'soilingIndex': soilingIndex,
+      'estimatedLoss': estimatedLoss,
+      'action': 'Cleaning cycle stopped by operator',
+      'waterUsedLiters': 0.0,
+      'source': 'Manual',
+      'cleaningMode': forceCleaningReady ? 'MANUAL' : 'AUTO',
+      'manualOverride': true,
+    });
   }
 
-  void stowPanel() {
-    panelStowed = true;
-    trackingManualMode = false;
-    tilt = 34.0;
-    roll = 0.0;
-    trackerMode = "STOW";
-    manualOverridesCount++;
-    notifyListeners();
+  Future<void> stowPanel() async {
+    await _updateLiveStatus({
+      'panelStowed': true,
+      'trackingManualMode': false,
+      'tilt': 34.0,
+      'roll': 0.0,
+      'trackerMode': 'STOW',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
+
+    await _trackingHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'mode': 'STOW',
+      'tilt': 34.0,
+      'roll': 0.0,
+      'avgIrradiance': avgIrradiance,
+      'brightestDirection': brightestDirection,
+      'topLeft': ldrTopLeft,
+      'topRight': ldrTopRight,
+      'bottomLeft': ldrBottomLeft,
+      'bottomRight': ldrBottomRight,
+      'weatherStatus': weatherStatus,
+      'trackerMode': 'STOW',
+    });
   }
 
-  void returnToAutoTracking() {
-    trackingManualMode = false;
-    panelStowed = false;
-    trackingSafetyAlert = !windSensorOnline || safetyLock;
+  Future<void> returnToAutoTracking() async {
+    final newTrackingSafetyAlert = !windSensorOnline || safetyLock;
+    final newMode = newTrackingSafetyAlert ? 'SAFE' : 'AUTO';
 
-    trackerMode = trackingSafetyAlert ? "SAFE" : "AUTO";
+    await _updateLiveStatus({
+      'trackingManualMode': false,
+      'panelStowed': false,
+      'trackingSafetyAlert': newTrackingSafetyAlert,
+      'trackerMode': newMode,
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
 
-    manualOverridesCount++;
-    notifyListeners();
+    await _trackingHistoryRef.add({
+      'timestamp': FieldValue.serverTimestamp(),
+      'mode': newMode,
+      'tilt': tilt,
+      'roll': roll,
+      'avgIrradiance': avgIrradiance,
+      'brightestDirection': brightestDirection,
+      'topLeft': ldrTopLeft,
+      'topRight': ldrTopRight,
+      'bottomLeft': ldrBottomLeft,
+      'bottomRight': ldrBottomRight,
+      'weatherStatus': weatherStatus,
+      'trackerMode': newMode,
+    });
   }
 
   double get avgIrradiance =>
@@ -732,76 +821,84 @@ class DashboardViewModel extends ChangeNotifier {
     return values.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
-  void raiseTopLeft() {
+  Future<void> raiseTopLeft() async {
     if (!canManualCornerControl) return;
-    cornerTopLeftHeight = (cornerTopLeftHeight + 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerTopLeftHeight': (cornerTopLeftHeight + 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void lowerTopLeft() {
+  Future<void> lowerTopLeft() async {
     if (!canManualCornerControl) return;
-    cornerTopLeftHeight = (cornerTopLeftHeight - 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerTopLeftHeight': (cornerTopLeftHeight - 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void raiseTopRight() {
+  Future<void> raiseTopRight() async {
     if (!canManualCornerControl) return;
-    cornerTopRightHeight = (cornerTopRightHeight + 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerTopRightHeight': (cornerTopRightHeight + 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void lowerTopRight() {
+  Future<void> lowerTopRight() async {
     if (!canManualCornerControl) return;
-    cornerTopRightHeight = (cornerTopRightHeight - 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerTopRightHeight': (cornerTopRightHeight - 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void raiseBottomLeft() {
+  Future<void> raiseBottomLeft() async {
     if (!canManualCornerControl) return;
-    cornerBottomLeftHeight = (cornerBottomLeftHeight + 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerBottomLeftHeight': (cornerBottomLeftHeight + 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void lowerBottomLeft() {
+  Future<void> lowerBottomLeft() async {
     if (!canManualCornerControl) return;
-    cornerBottomLeftHeight = (cornerBottomLeftHeight - 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerBottomLeftHeight': (cornerBottomLeftHeight - 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void raiseBottomRight() {
+  Future<void> raiseBottomRight() async {
     if (!canManualCornerControl) return;
-    cornerBottomRightHeight = (cornerBottomRightHeight + 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerBottomRightHeight': (cornerBottomRightHeight + 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
-  void lowerBottomRight() {
+  Future<void> lowerBottomRight() async {
     if (!canManualCornerControl) return;
-    cornerBottomRightHeight = (cornerBottomRightHeight - 5).clamp(0, 100).toDouble();
-    panelStowed = false;
-    trackerMode = "MANUAL";
-    manualOverridesCount++;
-    notifyListeners();
+    await _updateLiveStatus({
+      'cornerBottomRightHeight': (cornerBottomRightHeight - 5).clamp(0, 100).toDouble(),
+      'panelStowed': false,
+      'trackerMode': 'MANUAL',
+      'manualOverridesCount': manualOverridesCount + 1,
+    });
   }
 
   List<DashboardSensorItem> get sensorsStatus {
@@ -1162,7 +1259,12 @@ class DashboardViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _liveStatusSub?.cancel();
+    _sensorsSub?.cancel();
+    _trackingHistorySub?.cancel();
+    _cleaningHistorySub?.cancel();
+    _coolingHistorySub?.cancel();
+    _energyHistorySub?.cancel();
     super.dispose();
   }
 }

@@ -583,11 +583,13 @@
             ),
             _ApplyOrientationChangesButton(
               enabled: enabled,
-              onTap: () {
-                vm.tilt = _pendingTilt;
-                vm.roll = _pendingRoll;
-                vm.setTrackingManualMode(false);
-                vm.notifyListeners();
+              onTap: () async {
+                await vm.applyManualOrientation(
+                  newTilt: _pendingTilt,
+                  newRoll: _pendingRoll,
+                );
+
+                if (!context.mounted) return;
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -720,7 +722,7 @@
 
   class _ApplyOrientationChangesButton extends StatelessWidget {
     final bool enabled;
-    final VoidCallback onTap;
+    final Future<void> Function() onTap;
 
     const _ApplyOrientationChangesButton({
       required this.enabled,
@@ -732,7 +734,7 @@
       final cs = Theme.of(context).colorScheme;
 
       return InkWell(
-        onTap: enabled ? onTap : null,
+        onTap: enabled ? () { onTap(); } : null,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,

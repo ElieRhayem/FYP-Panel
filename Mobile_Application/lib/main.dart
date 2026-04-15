@@ -25,7 +25,7 @@ void main() async {
           create: (_) => AuthViewModel(FirebaseAuthService()),
         ),
         ChangeNotifierProvider<DashboardViewModel>(
-          create: (_) => DashboardViewModel()..startMockStream(),
+          create: (_) => DashboardViewModel()..initialize(),
         ),
       ],
       child: const MyApp(),
